@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Proje Uygulamaları</title>
+  <meta name="description" content="Araştırma projelerinin sunumları ve web uygulamaları.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #f7f4ee; --ink: #1f2937; --muted: #6b7280; --line: #e7dfd0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Nunito', system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+    main { max-width: 1040px; margin: 0 auto; padding: 40px 16px 60px; }
+    h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); margin: 0 0 6px; }
+    p.lead { color: var(--muted); font-size: 1.1rem; margin: 0 0 28px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+    .card { background: #fff; border: 1px solid var(--line); border-top: 8px solid var(--c); border-radius: 18px; padding: 20px; box-shadow: 0 8px 24px rgba(31, 41, 55, .07); display: grid; gap: 8px; }
+    .card h2 { margin: 0; font-size: 1.5rem; letter-spacing: .5px; }
+    .area { font-weight: 800; font-size: .85rem; color: var(--c); text-transform: uppercase; letter-spacing: .5px; }
+    .card p { margin: 0; color: #374151; }
+    .links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .links a { text-decoration: none; font-weight: 800; padding: 10px 14px; border-radius: 12px; border: 2px solid var(--line); color: var(--ink); }
+    .links a.pri { background: var(--c); border-color: var(--c); color: #fff; }
+    .soon { color: var(--muted); font-weight: 700; }
+    footer { margin-top: 36px; color: var(--muted); font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Proje Uygulamaları</h1>
+    <p class="lead">Her proje için önce tanıtım sunumu, ardından çalışan web uygulaması.</p>
+    <div class="grid">
+      <article class="card" style="--c:#2563eb">
+        <span class="area">Türk Dili ve Edebiyatı · E-Öğrenme</span>
+        <h2>SESİZİ</h2>
+        <p>İlk okuma yazma sürecinde sesten harfe ve kelimeye aşamalı dijital etkinlikler.</p>
+        <div class="links"><a class="pri" href="sesizi/#/sunum">🎞️ Sunum</a><a href="sesizi/#/uygulama">🧒 Uygulama</a><a href="sesizi/#/ogretmen">👩‍🏫 Öğretmen</a></div>
+      </article>
+      <article class="card" style="--c:#7c3aed">
+        <span class="area">Yazılım</span>
+        <h2>SESİGÖR</h2>
+        <p>Türkçe videolarda konuşma altyazısı.</p>
+        <p class="soon">Hazırlanıyor</p>
+      </article>
+      <article class="card" style="--c:#0f766e">
+        <span class="area">Coğrafya</span>
+        <h2>YOLİZİ</h2>
+        <p>1856 Trabzon–Erzurum kış yolu.</p>
+        <p class="soon">Hazırlanıyor</p>
+      </article>
+      <article class="card" style="--c:#b45309">
+        <span class="area">Fizik</span>
+        <h2>İZGE</h2>
+        <p>Optik geometri ve spektral çözünürlük.</p>
+        <p class="soon">Hazırlanıyor</p>
+      </article>
+    </div>
+    <footer>Uygulamalar tarayıcıda çalışır; veriler sunucuya gönderilmez.</footer>
+  </main>
+</body>
+</html>
