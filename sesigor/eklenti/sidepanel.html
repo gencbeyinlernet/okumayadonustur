@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SESİGÖR</title>
+  <link rel="stylesheet" href="core/panel.css">
+  <style>
+    html, body { margin: 0; height: 100%; background: #0b1220; color: #f8fafc; font-family: Inter, system-ui, sans-serif; }
+    body { display: flex; flex-direction: column; }
+    header { padding: 10px 12px; display: grid; gap: 8px; border-bottom: 1px solid rgba(255,255,255,.12); }
+    header h1 { font-size: 16px; margin: 0; letter-spacing: .5px; }
+    .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    button { appearance: none; font: inherit; font-weight: 700; padding: 8px 12px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: inherit; cursor: pointer; min-height: 38px; }
+    button.primary { background: #0ea5e9; border-color: #0ea5e9; color: #001018; }
+    button:focus-visible { outline: 3px solid #38bdf8; }
+    label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
+    #status { font-size: 13px; color: #cbd5e1; }
+    #panel { flex: 1; margin: 8px; }
+    .note { font-size: 12px; color: #94a3b8; padding: 0 12px 10px; margin: 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SESİGÖR</h1>
+    <div class="row">
+      <button class="primary" id="start">▶ Bu sekmede başlat</button>
+      <button id="stop" disabled>■ Durdur</button>
+      <button id="export" disabled>⬇ Oturum kaydı</button>
+    </div>
+    <label><input type="checkbox" id="keep" checked> Sekmenin sesini duymaya devam et</label>
+    <div id="status" role="status" aria-live="polite">Hazır. Eklenti siz başlatmadan ses yakalamaz.</div>
+  </header>
+  <div id="panel"></div>
+  <p class="note">Ses ve altyazı cihazdan çıkmaz; ses veya konuşma geçmişi kalıcı olarak kaydedilmez. Etiketler yalnızca videonun sesini anlatır; gerçek çevrenizde bir tehlike olduğu anlamına gelmez.</p>
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>

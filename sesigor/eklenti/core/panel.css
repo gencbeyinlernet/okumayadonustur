@@ -1,0 +1,20 @@
+/* SESİGÖR altyazı paneli */
+.sg-panel { --sg-font: 22px; --sg-bg: #0b1220; --sg-fg: #f8fafc; --sg-muted: #94a3b8; --sg-tag-bg: #fef3c7; --sg-tag-fg: #78350f; --sg-tag-bd: #b45309;
+  background: var(--sg-bg); color: var(--sg-fg); border-radius: 14px; display: flex; flex-direction: column; min-height: 0; font-family: Inter, system-ui, sans-serif; overflow: hidden; }
+.sg-panel.sg-hc { --sg-bg: #000; --sg-fg: #ffff00; --sg-muted: #ffffff; --sg-tag-bg: #fff; --sg-tag-fg: #000; --sg-tag-bd: #fff; }
+.sg-toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border-bottom: 1px solid rgba(255,255,255,.12); }
+.sg-toolbar button { appearance: none; font: inherit; font-size: 14px; font-weight: 700; padding: 6px 10px; border-radius: 9px; border: 1.5px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: var(--sg-fg); cursor: pointer; min-height: 36px; }
+.sg-toolbar button:focus-visible { outline: 3px solid #38bdf8; outline-offset: 1px; }
+.sg-toolbar button[aria-pressed="true"] { background: rgba(56,189,248,.25); border-color: #38bdf8; }
+.sg-active { min-height: 44px; padding: 8px 12px 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.sg-lines { flex: 1; overflow-y: auto; padding: 8px 14px; font-size: var(--sg-font); line-height: 1.35; display: flex; flex-direction: column; justify-content: flex-end; }
+.sg-lines p { margin: 0 0 .35em; }
+.sg-speech { font-weight: 600; }
+.sg-event { font-size: .85em; }
+.sg-tag { display: inline-flex; align-items: center; gap: .3em; background: var(--sg-tag-bg); color: var(--sg-tag-fg); border: 2px dashed var(--sg-tag-bd); border-radius: 6px; padding: .05em .45em; font-weight: 800; font-style: italic; letter-spacing: .01em; }
+.sg-tag.live { font-size: calc(var(--sg-font) * .8); animation: sg-pulse 1.2s ease-out 1; }
+@keyframes sg-pulse { 0% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.sg-interim { min-height: calc(var(--sg-font) * 1.5); padding: 4px 14px 12px; font-size: var(--sg-font); line-height: 1.35; }
+.sg-interim .sg-c { font-weight: 600; } .sg-interim .sg-i { color: var(--sg-muted); font-style: italic; }
+.sg-noevents .sg-active { display: none; }
+@media (prefers-reduced-motion: reduce) { .sg-tag.live { animation: none; } }

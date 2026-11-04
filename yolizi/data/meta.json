@@ -1,0 +1,25 @@
+{
+ "crs": "EPSG:32637 (WGS 84 / UTM zone 37N)",
+ "epsg": 32637,
+ "res": 30.0,
+ "width": 1728,
+ "height": 1601,
+ "x0": 512610.0,
+ "y1": 4527960.0,
+ "dem_units": "desimetre (int16, -32768 = veri yok)",
+ "source": "Copernicus DEM GLO-30 (DSM), pafta Copernicus_DSM_COG_10_N40_00_E039_00_DEM",
+ "source_url": "https://copernicus-dem-30m.s3.amazonaws.com/",
+ "license": "© DLR e.V. 2010–2014 ve © Airbus Defence and Space GmbH 2014–2018, Copernicus programı kapsamında ESA tarafından sağlanmıştır.",
+ "downloaded": "2026-11-04",
+ "resampling": "bilinear",
+ "bbox_lonlat": [
+  39.15,
+  40.47,
+  39.76,
+  40.9
+ ],
+ "rivers": "DEM’den türetildi: Priority-Flood çukur doldurma + D8 akış birikimi; eşikler 10 / 50 / 250 km² (sınıf 1/2/3)",
+ "tags": {
+  "AREA_OR_POINT": "Point"
+ }
+}
