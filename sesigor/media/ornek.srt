@@ -1,0 +1,27 @@
+1
+00:00:00,800 --> 00:00:03,480
+Bugün akşam yemeğinde mercimek çorbası yapacağız.
+
+2
+00:00:03,880 --> 00:00:05,880
+Çok güzel, ben de salata hazırlarım.
+
+3
+00:00:11,380 --> 00:00:13,210
+Telefon çalıyor, sen bakar mısın?
+
+4
+00:00:13,610 --> 00:00:16,040
+Annemmiş, birazdan geleceğini söyledi.
+
+5
+00:00:24,240 --> 00:00:25,610
+Birazdan kapıyı açacağım.
+
+6
+00:00:29,010 --> 00:00:31,080
+Sokaktan bir ambulans geçiyor galiba.
+
+7
+00:00:31,910 --> 00:00:33,220
+Umarım herkes iyidir.

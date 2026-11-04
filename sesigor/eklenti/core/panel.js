@@ -3,7 +3,7 @@
 import { CAT_BY_ID } from './categories.js';
 
 const KEY = 'sesigor.ayarlar';
-export const DEFAULT_SETTINGS = { fontSize: 22, contrast: 'normal', position: 'sag', events: true, maxLines: 6 };
+export const DEFAULT_SETTINGS = { fontSize: 22, contrast: 'normal', position: 'sag', events: true, maxLines: 8 };
 export function loadSettings() { try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(KEY)) }; } catch { return { ...DEFAULT_SETTINGS }; } }
 export function saveSettings(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* yok */ } }
 

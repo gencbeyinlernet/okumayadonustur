@@ -56,7 +56,7 @@ export async function renderUygulama(root) {
   $('[data-file]', root).onchange = (e) => { const f = e.target.files[0]; if (!f) return; video.src = URL.createObjectURL(f); fileName = f.name; $('[data-fname]', root).textContent = f.name; };
   $('[data-sample]', root).onclick = () => { video.src = new URL('../media/ornek.mp4', import.meta.url).href; fileName = 'ornek.mp4'; $('[data-fname]', root).textContent = 'Örnek video (yapay ses ve sentetik olay sesleri)'; };
   $('[data-start]', root).onclick = () => startSession(root).catch((e) => { setStatus(root, 'Başlatılamadı: ' + e.message); toast(e.message, 5000); resetButtons(root); });
-  $('[data-stop]', root).onclick = () => { stopSession(); resetButtons(root); showSummary(root); };
+  $('[data-stop]', root).onclick = async () => { $('[data-stop]', root).disabled = true; setStatus(root, 'Kalan ses işleniyor…'); const v = $('[data-video]', root); if (v && !v.paused) v.pause(); if (pipe) await pipe.finish(); stopSession(); resetButtons(root); showSummary(root); setStatus(root, 'Durduruldu.'); };
   $('[data-export]', root).onclick = () => exportSession();
   renderRules($('[data-rules]', root));
 }
@@ -122,7 +122,8 @@ function watchNetwork(root) {
     const el = $('[data-net]', root); if (!el) return clearInterval(netTimer);
     const ent = performance.getEntriesByType('resource').slice(netMark).filter((e) => !e.name.startsWith('blob:') && !e.name.startsWith('data:'));
     const ext = ent.filter((e) => new URL(e.name).origin !== location.origin);
-    el.innerHTML = `Oturum başladıktan sonra ağ isteği: <b>${ent.length}</b> (dış sunucu: <b>${ext.length}</b>). ${ent.length === 0 ? '✅ Ses ve altyazı ağ üzerinden gönderilmiyor.' : esc(ent.slice(-3).map((e) => new URL(e.name).pathname.split('/').pop()).join(', '))}`;
+    const local = ent.filter((e) => new URL(e.name).origin === location.origin).map((e) => new URL(e.name).pathname.split('/').pop());
+    el.innerHTML = `Oturum başladıktan sonra ağ isteği: <b>${ent.length}</b> · dış sunucuya: <b>${ext.length}</b>. ${ext.length === 0 ? '✅ Ses ve altyazı hiçbir sunucuya gönderilmiyor.' : '⚠️ Dış istekler: ' + esc(ext.map((e) => new URL(e.name).host).join(', '))}${local.length ? ` <span class="muted">(sitenin kendi model dosyaları: ${esc([...new Set(local)].join(', '))})</span>` : ''}`;
     if (pipe && !pipe.running) showSummary(root);
   }, 1000);
 }
@@ -136,7 +137,7 @@ function stopSession() {
 
 function showSummary(root) {
   if (!pipe) return; const s = pipe.summary(); const el = $('[data-sum]', root); if (!el) return;
-  el.innerHTML = `İşlenen ses ${fmt(s.audio_s, 1)} s · tanıma ${s.inference_count} kez · gerçek zaman oranı <b>${s.rtf ?? '–'}</b>${s.rtf > 1 ? ' (bu cihaz gerçek zamanın gerisinde)' : ''} · iç gecikme ortanca ${s.line_latency_median_s == null ? '–' : fmt(s.line_latency_median_s, 2) + ' s'} · kurallı olay ${s.events} / ham algılama ${s.raw_detections}${s.heap_mb ? ' · JS belleği ' + s.heap_mb + ' MB' : ''}`;
+  el.innerHTML = `İşlenen ses ${fmt(s.audio_s, 1)} s · tanıma ${s.inference_count} kez · gerçek zaman oranı <b>${s.rtf ?? '–'}</b>${s.rtf > 1 ? ' (bu cihaz gerçek zamanın gerisinde: gecikme birikir; WebGPU destekli bir tarayıcı veya daha hızlı bir bilgisayar önerilir)' : ''} · iç gecikme ortanca ${s.line_latency_median_s == null ? '–' : fmt(s.line_latency_median_s, 2) + ' s'} · kurallı olay ${s.events} / ham algılama ${s.raw_detections}${s.heap_mb ? ' · JS belleği ' + s.heap_mb + ' MB' : ''}`;
 }
 
 function exportSession() {

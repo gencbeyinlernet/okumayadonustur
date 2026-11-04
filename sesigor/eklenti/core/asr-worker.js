@@ -21,8 +21,10 @@ self.onmessage = async (e) => {
       self.postMessage({ type: 'ready', device });
     } else if (m.type === 'transcribe') {
       const t0 = performance.now();
-      const out = await asr(m.audio, { language: 'turkish', task: 'transcribe', return_timestamps: false, no_repeat_ngram_size: 3 });
-      self.postMessage({ type: 'result', id: m.id, text: (out.text || '').trim(), ms: performance.now() - t0, dur: m.audio.length / 16000 });
+      // bölüt zaman damgaları: tamamlanan bölütler kesinleştirilip tampon kırpılır
+      const out = await asr(m.audio, { language: 'turkish', task: 'transcribe', return_timestamps: true, no_repeat_ngram_size: 3 });
+      const chunks = (out.chunks || []).map((c) => ({ text: (c.text || '').trim(), t0: c.timestamp?.[0] ?? 0, t1: c.timestamp?.[1] ?? null }));
+      self.postMessage({ type: 'result', id: m.id, text: (out.text || '').trim(), chunks, ms: performance.now() - t0, dur: m.audio.length / 16000 });
     }
   } catch (err) {
     self.postMessage({ type: 'error', id: m.id, message: err.message || String(err) });

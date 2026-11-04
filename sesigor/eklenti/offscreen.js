@@ -26,7 +26,7 @@ async function start({ streamId, keepAudio, rules }) {
 async function stop() {
   if (cap) { cap.stop(); await cap.ctx.close().catch(() => {}); cap = null; }
   if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
-  if (pipe) { pipe.stop(); }
+  if (pipe) { await pipe.finish(); pipe.stop(); }
   send('status', { text: 'Durduruldu', running: false });
 }
 

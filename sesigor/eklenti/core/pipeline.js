@@ -5,6 +5,8 @@ import { HALLUCINATIONS } from './categories.js';
 
 const SR = 16000;
 const words = (t) => t.split(/\s+/).filter(Boolean);
+/** Whisper'ın parantezli ses açıklamaları ([Müzik], (alkış) …) altyazıdan çıkarılır; ses olaylarını yalnız olay modülü bildirir. */
+const clean = (t) => String(t || '').replace(/\[[^\]]*\]|\([^)]*\)|[♪♫]+/g, ' ').replace(/\s+/g, ' ').trim();
 const norm = (w) => w.toLocaleLowerCase('tr-TR').replace(/[.,!?;:"'“”‘’()…-]/g, '');
 
 export class Pipeline extends EventTarget {
@@ -15,7 +17,7 @@ export class Pipeline extends EventTarget {
   constructor({ base, clock, rules, asr = {}, model = 'Xenova/whisper-base', allowRemote = false, webgpu = true }) {
     super();
     this.base = base; this.clock = clock || (() => (performance.now() - this.t0) / 1000);
-    this.opt = { window: 4, hop: 1, maxBuf: 10, silence: 0.7, ...asr };
+    this.opt = { hop: 1, maxBuf: 12, silence: 0.6, ...asr };
     this.model = model; this.allowRemote = allowRemote; this.webgpu = webgpu;
     this.events = new EventDetector({ base, rules });
     this.log = { lines: [], events: [], raw: [], scores: [], infer: [], start: null, end: null };
@@ -48,6 +50,7 @@ export class Pipeline extends EventTarget {
 
   start() { this.reset(); this.running = true; this.t0 = performance.now(); this.log.start = new Date().toISOString(); this.mediaStart = this.clock(); }
   stop() {
+    if (this.running) this.flushInterim();
     this.running = false; this.log.end = new Date().toISOString();
     this.buf = new Float32Array(0); this.evBuf = new Float32Array(0); // kısa tamponlar temizlenir
   }
@@ -80,53 +83,76 @@ export class Pipeline extends EventTarget {
     const dur = this.buf.length / SR;
     if (dur < 1 || performance.now() - this.lastInfer < this.opt.hop * 1000) return;
     // enerji tabanlı ses etkinliği: tampon tamamen sessizse tanıma yapılmaz (uydurma metni önler)
-    if (rms(this.buf) < 0.004) { if (dur > 2) this.finalize(this.prevHyp, this.buf.length); return; }
+    if (rms(this.buf) < 0.004) { if (dur > 2) { this.flushInterim(); this.buf = new Float32Array(0); } return; }
     this.busy = true; this.lastInfer = performance.now();
-    const audio = this.buf.slice(); const span = [this.bufStart, this.bufStart + dur];
-    const sent = audio.slice(); // işçiye aktarılan kopya
+    const audio = this.buf.slice(); const start = this.bufStart; const len = audio.length / SR;
     try {
-      const r = await this.transcribe(sent);
+      const r = await this.transcribe(audio.slice());
       this.log.infer.push({ ms: Math.round(r.ms), audio_s: +r.dur.toFixed(2) });
-      let text = r.text;
-      if (HALLUCINATIONS.some((re) => re.test(text))) text = '';
-      const hyp = words(text);
-      // Yerel uzlaşma: art arda iki hipotezde aynı olan önek kesinleşir; kalanı geçici gösterilir.
-      let k = 0; while (k < hyp.length && k < this.prevHyp.length && norm(hyp[k]) === norm(this.prevHyp[k])) k++;
-      if (hyp.length && this.firstShown == null) this.firstShown = this.clock();
-      if (k > this.committed) { this.committed = k; if (this.stableAt == null) this.stableAt = this.clock(); }
-      this.prevHyp = hyp;
-      // Sonlandırma yalnızca tanınan örnekleri kapsar; tanıma sürerken gelen ses tamponda kalır.
-      const tail = rms(audio.slice(-Math.round(this.opt.silence * SR)));
-      const endSilent = tail < 0.006;
-      if (audio.length / SR >= this.opt.maxBuf || (endSilent && hyp.length && k === hyp.length)) {
-        this.finalize(hyp, audio.length, span);
-      } else {
-        this.emit('interim', { committed: hyp.slice(0, this.committed).join(' '), interim: hyp.slice(this.committed).join(' ') });
+      let segs = (r.chunks && r.chunks.length ? r.chunks : [{ text: r.text, t0: 0, t1: null }])
+        .map((c) => ({ ...c, text: clean(c.text), t1: c.t1 == null ? len : Math.min(c.t1, len) }))
+        .filter((c) => c.text && !HALLUCINATIONS.some((re) => re.test(c.text)));
+      const endSilent = rms(audio.slice(-Math.round(this.opt.silence * SR))) < 0.006;
+      // Tamamlanmış bölütler: son bölüt dışındakiler (ardından konuşma sürüyor) ya da sonda sessizlik varsa hepsi.
+      let n = endSilent ? segs.length : Math.max(0, segs.length - 1);
+      if (!n && len >= this.opt.maxBuf && segs.length) n = segs.length; // tampon sınırı: zorla kesinleştir
+      const now = this.clock();
+      for (let i = 0; i < n; i++) {
+        const sg = segs[i];
+        const line = { text: sg.text, audioStart: +(start + sg.t0).toFixed(3), audioEnd: +(start + sg.t1).toFixed(3), firstShownAt: +(this.firstShown ?? now).toFixed(3), stableAt: +now.toFixed(3), shownAt: +now.toFixed(3) };
+        this.log.lines.push(line); this.emit('final', line);
       }
+      if (n) {
+        const cut = n === segs.length ? audio.length : Math.round(segs[n - 1].t1 * SR);
+        this.buf = this.buf.slice(cut); this.bufStart += cut / SR; this.firstShown = null; this.prevHyp = [];
+      }
+      // Kalan bölüt: art arda iki hipotezde aynı kalan önek kesinleşmiş (beyaz), kalanı geçici (gri) gösterilir.
+      const rest = words(segs.slice(n).map((c) => c.text).join(' '));
+      let k = 0; while (k < rest.length && k < this.prevHyp.length && norm(rest[k]) === norm(this.prevHyp[k])) k++;
+      if (rest.length && this.firstShown == null) this.firstShown = now;
+      this.prevHyp = rest;
+      this.emit('interim', { committed: rest.slice(0, k).join(' '), interim: rest.slice(k).join(' ') });
     } catch (e) { this.emit('error', e); }
     this.busy = false;
     if (this.running) setTimeout(() => this.maybeTranscribe(), 50);
   }
 
-  /** used: tanınan (tampondan atılacak) örnek sayısı. */
-  finalize(hyp, used, span) {
-    const text = hyp.join(' ').trim();
-    if (text) {
-      const now = this.clock();
-      const line = { text, audioStart: +(span ? span[0] : this.bufStart).toFixed(3), audioEnd: +(span ? span[1] : this.bufStart + used / SR).toFixed(3),
-        firstShownAt: +(this.firstShown ?? now).toFixed(3), stableAt: +(this.stableAt ?? now).toFixed(3), shownAt: +now.toFixed(3) };
-      this.log.lines.push(line); this.emit('final', line);
+  /** Durdurmadan önce: süren tanımayı bekler, tamponda kalan sesi tanıyıp bütün bölütleri kesinleştirir. */
+  async finish() {
+    if (!this.running) return;
+    this.running = false;
+    for (let i = 0; i < 200 && this.busy; i++) await new Promise((r) => setTimeout(r, 100));
+    const SR30 = 28 * SR;
+    while (this.buf.length / SR >= 0.5 && rms(this.buf) >= 0.004) {
+      const audio = this.buf.slice(0, SR30); const start = this.bufStart; const len = audio.length / SR;
+      try {
+        const r = await this.transcribe(audio.slice());
+        this.log.infer.push({ ms: Math.round(r.ms), audio_s: +r.dur.toFixed(2) });
+        const now = this.clock();
+        (r.chunks && r.chunks.length ? r.chunks : [{ text: r.text, t0: 0, t1: len }]).map((c) => ({ ...c, text: clean(c.text) }))
+          .filter((c) => c.text && !HALLUCINATIONS.some((re) => re.test(c.text)))
+          .forEach((c) => { const line = { text: c.text, audioStart: +(start + c.t0).toFixed(3), audioEnd: +(start + Math.min(c.t1 ?? len, len)).toFixed(3), firstShownAt: +(this.firstShown ?? now).toFixed(3), stableAt: +now.toFixed(3), shownAt: +now.toFixed(3), afterStop: true }; this.log.lines.push(line); this.emit('final', line); });
+      } catch (e) { this.emit('error', e); break; }
+      this.buf = this.buf.slice(audio.length); this.bufStart += len; this.prevHyp = []; this.firstShown = null;
     }
     this.emit('interim', { committed: '', interim: '' });
-    this.buf = this.buf.slice(used); this.bufStart += used / SR;
-    this.prevHyp = []; this.committed = 0; this.firstShown = null; this.stableAt = null;
+    this.running = true; this.stop();
+  }
+
+  /** Sessizlikte bekleyen geçici metni satır olarak kapatır. */
+  flushInterim() {
+    if (!this.prevHyp.length) return;
+    const now = this.clock();
+    const line = { text: this.prevHyp.join(' '), audioStart: +this.bufStart.toFixed(3), audioEnd: +(this.bufStart + this.buf.length / SR).toFixed(3), firstShownAt: +(this.firstShown ?? now).toFixed(3), stableAt: +now.toFixed(3), shownAt: +now.toFixed(3) };
+    this.log.lines.push(line); this.emit('final', line); this.emit('interim', { committed: '', interim: '' });
+    this.prevHyp = []; this.firstShown = null; this.bufStart += this.buf.length / SR;
   }
 
   summary() {
     const inf = this.log.infer; const audioS = this.total / SR;
     const procMs = inf.reduce((s, x) => s + x.ms, 0);
     // gecikme: ses parçasının sonu → ilk kararlı (kesinleşmiş) gösterim
-    const lat = this.log.lines.map((l) => Math.max(0, Math.min(l.stableAt, l.shownAt) - l.audioEnd)).filter((x) => isFinite(x)).sort((a, b) => a - b);
+    const lat = this.log.lines.filter((l) => !l.afterStop).map((l) => Math.max(0, l.stableAt - l.audioEnd)).filter((x) => isFinite(x)).sort((a, b) => a - b);
     const q = (p) => (lat.length ? lat[Math.min(lat.length - 1, Math.floor(p * lat.length))] : null);
     return { device: this.device, audio_s: +audioS.toFixed(1), inference_count: inf.length, rtf: audioS ? +(procMs / 1000 / audioS).toFixed(3) : null,
       line_latency_median_s: q(0.5), line_latency_p95_s: q(0.95), events: this.log.events.length, raw_detections: this.events.raw.length,
