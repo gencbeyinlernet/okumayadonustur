@@ -5,9 +5,9 @@ Her proje için önce **sunum**, ardından çalışan **web uygulaması**. Kurul
 | Proje | Alan | Durum |
 |---|---|---|
 | [SESİZİ](sesizi/) | Türk Dili ve Edebiyatı · E-Öğrenme | Hazır |
-| SESİGÖR | Yazılım | Hazırlanıyor |
-| YOLİZİ | Coğrafya | Hazırlanıyor |
-| İZGE | Fizik | Hazırlanıyor |
+| [SESİGÖR](sesigor/) | Yazılım · Erişilebilir Yaşam Teknolojileri | Hazır |
+| [YOLİZİ](yolizi/) | Coğrafya · Somut Kültürel Miras | Hazır |
+| [İZGE](izge/) | Fizik · STEAM | Hazır |
 
 ## SESİZİ
 
@@ -43,3 +43,15 @@ Ardından tarayıcıda `http://localhost:8000/sesizi/` adresini açın.
 ### GitHub Pages
 
 Settings → Pages → Build and deployment → Source: **Deploy from a branch** → yayımlanacak dalı ve `/ (root)` klasörünü seçin.
+
+## SESİGÖR
+
+Türkçe videolarda konuşma altyazısına ses olayı etiketleri ekleyen tarayıcı eklentisi (`sesigor/eklenti`, Manifest V3) ve aynı çekirdeği kullanan web uygulaması. Konuşma: Whisper base (Transformers.js, 8 bit ONNX); ses olayları: YAMNet (MediaPipe). Eşik, ardışık doğrulama, birleştirme, en çok 2 etiket. Değerlendirme: WER (Tablo 1), olay F1 (Tablo 2, Ek 1), gecikme (Tablo 3), eşik seçimi; kullanıcı pilotu: dengeli atama, Tablo 4, Şekil 3. Ses ve altyazı sunucuya gönderilmez.
+
+## YOLİZİ
+
+Copernicus GLO-30 DEM (UTM 37K, 30 m) üzerinde M0/M1/M2 en düşük maliyetli yol modelleri (8 komşulu Dijkstra), SHA-256 özetli geliştirme–test ayrım kilidi, parametre seçimi, duyarlılık/uzlaşma haritası, %5–%10 koridorlar, Tablo 4–6, Ek 1–2 dışa aktarma; three.js + WebXR 3B/VR sahne ve teknik testler.
+
+## İZGE
+
+Web kamerasıyla spektrum ölçümü: karanlık kare, Hg/Ne kalibrasyonu (≤ 2. derece), 650,6528 nm bağımsız doğrulama, 546,0735 nm FWHM ve geçerlilik denetimleri; deney yöneticisi (tohumlu rastgele sıra, protokol kilidi), Tablo 6–10, iki faktörlü ANOVA, Welch t, Şekil 4–6; optik araçlar ve Şekil 2 şeması. Simülasyon kaynağı yalnızca yazılım denemesi içindir ve analizlere girmez.
