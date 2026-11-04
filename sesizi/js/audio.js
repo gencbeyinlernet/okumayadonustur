@@ -91,27 +91,49 @@ export async function deleteRecording(key) {
 export const soundKey = (ch) => 'ses:' + ch;
 export const wordKey = (w) => 'kelime:' + w;
 export const sentenceKey = (id) => 'cumle:' + id;
+export const syllableKey = (s) => 'hece:' + s;
+export const questionKey = (q) => 'soru:' + q;
+export const phraseKey = (t) => 'ifade:' + t;
 
-/** Kayıt varsa onu çalar, yoksa metni okur. Dönüş: 'kayit' | 'tts' */
+// ---- Hazır ses dosyaları (audio/manifest.json: anahtar → dosya) ----
+let manifest = {};
+const manifestReady = fetch(new URL('../audio/manifest.json', import.meta.url))
+  .then((r) => (r.ok ? r.json() : {}))
+  .then((m) => { manifest = m || {}; })
+  .catch(() => { manifest = {}; });
+export const hasBundled = (key) => !!manifest[key];
+export const bundledCount = () => Object.keys(manifest).length;
+export const whenBundledReady = () => manifestReady;
+
+function playUrl(url, revoke) {
+  stopAll();
+  const a = new Audio(url);
+  currentAudio = a;
+  return new Promise((res) => {
+    let done = false;
+    const fin = (ok) => { if (done) return; done = true; if (revoke) URL.revokeObjectURL(url); res(ok); };
+    a.onended = () => fin(true);
+    a.onerror = () => fin(false);
+    a.play().catch(() => fin(false));
+  });
+}
+
+/**
+ * Sesi çalar. Öncelik: öğretmen kaydı → hazır ses dosyası → tarayıcının Türkçe sesi.
+ * Dönüş: 'kayit' | 'hazir' | 'tts'
+ */
 export async function play(key, fallbackText, rate) {
   const blob = key ? await getRecording(key) : null;
-  if (blob) {
-    stopAll();
-    const url = URL.createObjectURL(blob);
-    const a = new Audio(url);
-    currentAudio = a;
-    await new Promise((res) => {
-      a.onended = a.onerror = () => { URL.revokeObjectURL(url); res(); };
-      a.play().catch(res);
-    });
-    return 'kayit';
-  }
+  if (blob && (await playUrl(URL.createObjectURL(blob), true))) return 'kayit';
+  await manifestReady;
+  if (key && manifest[key] && (await playUrl(new URL('../audio/' + manifest[key], import.meta.url).href))) return 'hazir';
   await speak(fallbackText, rate);
   return 'tts';
 }
 
 export const playLetter = (ch) => play(soundKey(ch), ch, 0.7);
 export const playWord = (w) => play(wordKey(w), w, 0.75);
+export const playSyllable = (s) => play(syllableKey(s), s, 0.7);
 
 // ---- Mikrofonla kayıt (öğretmen) ----
 export class Recorder {

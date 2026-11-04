@@ -28,7 +28,7 @@ Her proje için önce **sunum**, ardından çalışan **web uygulaması**. Kurul
 
 - Saf HTML, CSS ve JavaScript (ES modülleri); derleme adımı ve harici API yoktur.
 - Veriler yalnızca tarayıcıda (`localStorage`, ses kayıtları `IndexedDB`) saklanır; sunucuya gönderilmez.
-- Ses: öğretmen kaydı varsa o, yoksa tarayıcının Türkçe metin okuma sesi kullanılır.
+- Ses: öncelik öğretmen kaydı → `sesizi/audio/` altındaki hazır Türkçe ses dosyaları → tarayıcının metin okuma sesi. Hazır sesler Gemini TTS ile toplu üretildi, sessizliklerden bölündü ve otomatik yazıya döküm ile denetlendi. Patlamalı ünsüzler hece kayıtlarından ünlü başlamadan önce kesilerek türetildi; öğretmenin dinleyip gerekirse kendi sesiyle kaydetmesi önerilir. API anahtarı depoda yer almaz.
 - Çizim puanlaması: yön uyumlu kapsama, en zayıf çizgi, isabet ve uç noktalar; rehbersiz düzeylerde ek olarak $P nokta bulutu tanıyıcısı (Vatavu vd., 2012) ve satır yerleşimi denetimi.
 - Kelime ve cümleler, içerdikleri bütün harfler öğrenilmiş ses gruplarında olduğunda otomatik açılır.
 

@@ -3,6 +3,7 @@ import { MODULES, MODULE_BY_ID } from './data.js';
 import { getState, codes, student, isUnlocked, startSession, endSession, sessionMinutes, save } from './store.js';
 import { runModule, stopActivity } from './activities.js';
 import { renderTeacher, loadRecordingKeys } from './teacher.js';
+import { whenBundledReady } from './audio.js';
 import { renderSunum, stopSunum } from './sunum.js';
 import { $, $$, esc, modal, toast } from './ui.js';
 
@@ -178,4 +179,4 @@ function route() {
 }
 
 window.addEventListener('hashchange', route);
-loadRecordingKeys().finally(route);
+Promise.allSettled([loadRecordingKeys(), whenBundledReady()]).finally(route);

@@ -83,7 +83,7 @@ const SLIDES = [
       ${img('m1-ses-harf.png', 'Ses–harf eşleştirme ekranı', 'Öğrenci sesi dinler, harfi seçer')}
       <ul class="ticks">
         <li>Ses, harf adı olarak değil <b>konuşma sesi</b> olarak verilir; ünsüzler ek ünlü olmadan seslendirilir</li>
-        <li>Öğretmen her ses için kendi sesini kaydedebilir; kayıt yoksa tarayıcının Türkçe sesi kullanılır</li>
+        <li>Uygulamada 470’ten fazla hazır Türkçe ses dosyası var (harf sesleri, heceler, kelimeler, cümleler, geri bildirimler); öğretmen istediği sesi kendi sesiyle kaydedip değiştirebilir</li>
         <li>Çeldiriciler görsel olarak karışan harflerden seçilir (b–d–p, ı–i–l…)</li>
         <li>Doğru yanıtın yeri <b>her soruda değişir</b>; başarı konum ezberinden kaynaklanmaz</li>
       </ul>

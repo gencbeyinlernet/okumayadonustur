@@ -6,7 +6,7 @@ import {
 } from './store.js';
 import {
   playLetter, playWord, play, hasRecording, saveRecording, deleteRecording, recordingCount, loadRecordingKeys,
-  soundKey, wordKey, sentenceKey, Recorder, canRecord, hasTurkishVoice, ttsAvailable,
+  soundKey, wordKey, sentenceKey, Recorder, canRecord, hasTurkishVoice, ttsAvailable, hasBundled, bundledCount, whenBundledReady,
 } from './audio.js';
 import { letterSVG } from './strokes.js';
 import { mean, sd, wilcoxon, SKILLS } from './stats.js';
@@ -36,6 +36,7 @@ export function renderTeacher(root, tab = 'sinif', arg) {
 // ================= Sınıf ve ayarlar =================
 function sinif(body) {
   const st = getState().settings;
+  whenBundledReady().then(() => { const b = $('[data-bundled]', body); if (b) b.textContent = bundledCount(); });
   const ttsOk = ttsAvailable() && hasTurkishVoice();
   body.innerHTML = `
   <div class="cards2">
@@ -70,9 +71,9 @@ function sinif(body) {
     </div>
     <div class="card">
       <h3>Ses durumu</h3>
-      <p>${ttsOk ? '✅ Bu cihazda Türkçe metin okuma sesi bulundu.' : '⚠️ Bu cihazda Türkçe metin okuma sesi bulunamadı. Ses kayıtlarını öğretmen olarak yapmanız önerilir.'}</p>
-      <p>Kayıtlı ses dosyası: <b data-reccount>${recordingCount()}</b></p>
-      <p class="muted">Ünsüzler, ek bir ünlü eklenmeden seslendirilmelidir (ör. “le” değil /l/). Tarayıcı sesi ünsüzlere ünlü ekleyebilir; bu nedenle “İçerik kontrolü” bölümünden her ses için öğretmen kaydı alınabilir.</p>
+      <p>✅ Uygulamayla gelen hazır Türkçe ses dosyası: <b data-bundled>${bundledCount()}</b> (harf sesleri, heceler, kelimeler, cümleler, sorular ve geri bildirimler).</p>
+      <p>Öğretmen kaydı: <b data-reccount>${recordingCount()}</b> · Tarayıcı sesi (yedek): ${ttsOk ? 'Türkçe ses bulundu' : 'Türkçe ses yok'}</p>
+      <p class="muted">Çalma önceliği: öğretmen kaydı → hazır ses → tarayıcı sesi. Ünsüzler ek bir ünlü eklenmeden seslendirilmelidir (ör. “le” değil /l/). Hazır sesler yapay zekâ ile üretilmiş ve otomatik olarak denetlenmiştir; özellikle patlamalı ünsüzleri (b, c, d, g, k, p, t, ç) dinleyip gerekirse “İçerik kontrolü” bölümünden kendi sesinizle kaydedin.</p>
     </div>
   </div>`;
   const avail = $('[data-avail]', body);
@@ -224,9 +225,12 @@ function icerik(body) {
       corrected: Object.values(C.corrected).filter(Boolean).length,
     };
   };
+  const srcBadge = (key) => hasRecording(key) ? '<span class="badge ok" title="Öğretmen kaydı">öğretmen kaydı</span>'
+    : hasBundled(key) ? '<span class="badge ok" title="Uygulamayla gelen yüksek kaliteli Türkçe ses">hazır ses</span>'
+    : '<span class="badge" title="Tarayıcının metin okuma sesi">tarayıcı sesi</span>';
   const recBtns = (key) => canRecord()
-    ? `<button class="btn tiny" data-rec="${esc(key)}">● Kaydet</button>${hasRecording(key) ? `<button class="btn tiny ghost" data-delrec="${esc(key)}" title="Kaydı sil">🗑</button><span class="badge ok">kayıt</span>` : '<span class="badge">TTS</span>'}`
-    : (hasRecording(key) ? '<span class="badge ok">kayıt</span>' : '<span class="badge">TTS</span>');
+    ? `<button class="btn tiny" data-rec="${esc(key)}">● Kaydet</button>${hasRecording(key) ? `<button class="btn tiny ghost" data-delrec="${esc(key)}" title="Kaydı sil">🗑</button>` : ''}${srcBadge(key)}`
+    : srcBadge(key);
   const checkBox = (id) => `<label class="check small"><input type="checkbox" data-chk="${esc(id)}" ${C.checked[id] ? 'checked' : ''}> kontrol edildi</label>`;
   const enableBox = (id) => `<label class="check small"><input type="checkbox" data-en="${esc(id)}" ${C.disabled[id] ? '' : 'checked'}> kullanımda</label>`;
   const corrBox = (id) => `<label class="check small"><input type="checkbox" data-cor="${esc(id)}" ${C.corrected[id] ? 'checked' : ''}> düzeltildi</label>`;
@@ -315,9 +319,10 @@ function icerik(body) {
   $('[data-ek2]', body).onclick = () => {
     const rows = [['Ses grubu', 'Tür', 'İçerik', 'Görsel', 'Ses kaynağı', 'Kontrol edildi', 'Düzeltildi', 'Kullanımda']];
     GROUPS.forEach((g) => {
-      g.letters.forEach((c) => rows.push([g.id, VOWELS.has(c) ? 'ses (ünlü)' : 'ses (ünsüz)', c, '', hasRecording(soundKey(c)) ? 'öğretmen kaydı' : 'TTS', C.checked['l:' + c] ? 'evet' : 'hayır', C.corrected['l:' + c] ? 'evet' : 'hayır', 'evet']));
-      WORDS.filter((w) => w.g === g.id).forEach((w) => rows.push([g.id, 'kelime', w.w, w.e, hasRecording(wordKey(w.w)) ? 'öğretmen kaydı' : 'TTS', C.checked[w.id] ? 'evet' : 'hayır', C.corrected[w.id] ? 'evet' : 'hayır', C.disabled[w.id] ? 'hayır' : 'evet']));
-      SENTENCES.filter((s) => s.g === g.id).forEach((s) => rows.push([g.id, 'cümle', sentenceText(s), s.a, hasRecording(sentenceKey(s.id)) ? 'öğretmen kaydı' : 'TTS', C.checked[s.id] ? 'evet' : 'hayır', C.corrected[s.id] ? 'evet' : 'hayır', C.disabled[s.id] ? 'hayır' : 'evet']));
+      const src = (k) => (hasRecording(k) ? 'öğretmen kaydı' : hasBundled(k) ? 'hazır ses' : 'tarayıcı sesi');
+      g.letters.forEach((c) => rows.push([g.id, VOWELS.has(c) ? 'ses (ünlü)' : 'ses (ünsüz)', c, '', src(soundKey(c)), C.checked['l:' + c] ? 'evet' : 'hayır', C.corrected['l:' + c] ? 'evet' : 'hayır', 'evet']));
+      WORDS.filter((w) => w.g === g.id).forEach((w) => rows.push([g.id, 'kelime', w.w, w.e, src(wordKey(w.w)), C.checked[w.id] ? 'evet' : 'hayır', C.corrected[w.id] ? 'evet' : 'hayır', C.disabled[w.id] ? 'hayır' : 'evet']));
+      SENTENCES.filter((s) => s.g === g.id).forEach((s) => rows.push([g.id, 'cümle', sentenceText(s), s.a, src(sentenceKey(s.id)), C.checked[s.id] ? 'evet' : 'hayır', C.corrected[s.id] ? 'evet' : 'hayır', C.disabled[s.id] ? 'hayır' : 'evet']));
     });
     download('SESIZI_Ek2_ses_harf_kelime_listesi.csv', toCSV(rows), 'text/csv;charset=utf-8');
   };

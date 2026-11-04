@@ -1,7 +1,7 @@
 // Yedi modülün etkinlikleri ve ortak etkinlik motoru.
 import { MODULE_BY_ID, MODULES, CONFUSABLE, MIRRORABLE, SYMBOLS, WORDS, ALL_LETTERS, VOWELS, upper, lettersOf, sentenceText } from './data.js';
 import { student, getState, learnedLetters, availableWords, availableSentences, availableSyllables, recordAnswer, recordDrawing, letterWeight } from './store.js';
-import { playLetter, playWord, play, speak, sentenceKey } from './audio.js';
+import { playLetter, playWord, playSyllable, play, sentenceKey, questionKey } from './audio.js';
 import { TraceBoard, LEVELS } from './draw.js';
 import { $, $$, h, esc, shuffle, pick, placeAnswer, weightedPick, feedback, clearFeedback } from './ui.js';
 
@@ -150,7 +150,7 @@ function m1(ctx) {
       $$('.choice', body).forEach((x) => x.disabled = true);
       const first = !answered;
       answered = true;
-      feedback(fb, `Evet, «${target}» sesinin harfini buldun.`, true);
+      feedback(fb, `Evet, «${target}» sesinin harfini buldun.`, true, 'Evet, doğru harfi buldun.');
       const out = first ? ctx.result({ correct: true, letters: [target], hints }) : {};
       if (!out.interrupted) later(() => ctx.next(), 1500);
     } else {
@@ -193,7 +193,7 @@ function m2(ctx) {
       if (found === nT) {
         done = true;
         const ok = wrongTaps === 0;
-        feedback(fb, ok ? `Bütün «${target}» harflerini buldun.` : `Hepsini buldun. Bir dahaki sefere biçimlere daha dikkatli bakalım.`, ok);
+        feedback(fb, ok ? `Bütün «${target}» harflerini buldun.` : 'Hepsini buldun. Bir dahaki sefere biçimlere daha dikkatli bakalım.', ok, ok ? 'Bütün harfleri buldun.' : null);
         const out = ctx.result({ correct: ok, letters: [target], extra: { yanlisDokunma: wrongTaps } });
         if (!out.interrupted) later(() => ctx.next(), 1700);
       }
@@ -251,7 +251,7 @@ function traceRound(ctx, independent) {
     recordDrawing(ctx.code, { m: ctx.mid, l: target, lv: level, sc: r.score, ok: r.ok, hint: hints });
     if (r.ok) {
       success = true;
-      feedback(fb, independent ? `«${target}» harfini kendin yazdın.` : 'İzi baştan sona takip ettin.', true);
+      feedback(fb, independent ? `«${target}» harfini kendin yazdın.` : 'İzi baştan sona takip ettin.', true, independent ? 'Harfi kendin yazdın.' : null);
       const out = ctx.result({ correct: true, letters: [target], hints });
       if (!out.interrupted) later(() => ctx.next(), 1600);
     } else {
@@ -285,7 +285,7 @@ function m5(ctx) {
     <div class="slots" data-slots>${target.map(() => '<div class="slot"></div>').join('')}</div>
     <div class="tiles" data-tiles>${tiles.map((t) => `<button class="tile" data-t="${t.i}"><span class="lc">${t.v}</span></button>`).join('')}</div>
     <div class="act-tools"><button class="btn ghost" data-undo>↩ Geri al</button><button class="btn ghost" data-hint>💡 İpucu</button></div>`;
-  const say = () => (item.word ? playWord(item.text) : speak(item.text, 0.7));
+  const say = () => (item.word ? playWord(item.text) : playSyllable(item.text));
   $('[data-sound]', body).onclick = say;
   later(say, 250);
   const slots = $$('.slot', body);
@@ -299,7 +299,7 @@ function m5(ctx) {
     if (ok) {
       done = true;
       slots.forEach((s) => s.classList.add('right'));
-      feedback(fb, `Sesleri doğru birleştirdin: «${item.text}».`, true);
+      feedback(fb, `Sesleri doğru birleştirdin: «${item.text}».`, true, 'Sesleri doğru birleştirdin.');
       const out = !attempted ? ctx.result({ correct: true, letters: lettersOf(item.text), hints, extra: { [item.word ? 'kelime' : 'hece']: 1 } }) : {};
       attempted = true;
       if (!out.interrupted) later(() => ctx.next(), 1600);
@@ -415,7 +415,7 @@ function m7(ctx) {
       <div class="prompt">${soundBtn('Soruyu dinle')}<p class="question">${esc(s.q)}</p></div>
       <div class="choices pics">${opts.map((e) => `<button class="choice pic-card" data-e="${e}">${e}</button>`).join('')}</div>
       ${listening ? '<p class="note">Sınıf ayarı: cümleler sesli okunuyor (dinlediğini anlama).</p>' : ''}`;
-    const sayQ = () => speak(s.q, 0.85);
+    const sayQ = () => play(questionKey(s.q), s.q, 0.85);
     $('[data-sound]', body).onclick = sayQ;
     later(sayQ, 300);
     $$('.choice', body).forEach((b) => b.onclick = () => {

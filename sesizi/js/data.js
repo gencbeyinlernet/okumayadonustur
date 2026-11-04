@@ -120,3 +120,16 @@ export const MODULES = [
 ];
 
 export const MODULE_BY_ID = Object.fromEntries(MODULES.map((m) => [m.id, m]));
+
+// Sesli geri bildirim cümleleri (hazır ses dosyası üretilir; değişken içermez).
+export const PHRASES = [
+  'Evet, doğru harfi buldun.', 'Sesi bir kez daha dinleyelim.', 'Bütün harfleri buldun.',
+  'Hepsini buldun. Bir dahaki sefere biçimlere daha dikkatli bakalım.', 'Bu harf ters dönmüş. Yönüne bakalım.',
+  'Bu, aradığımız harf değil. Biçimine yeniden bakalım.', 'Önce harfi yazalım.', 'Harfi kendin yazdın.',
+  'İzi baştan sona takip ettin.', 'Başlangıç noktasına dönüp bir kez daha deneyelim.',
+  'Çizgilerin dışına taştı. Yavaşça bir kez daha deneyelim.', 'Sesleri doğru birleştirdin.',
+  'Sesleri sırayla söyleyip yeniden deneyelim.', 'Kelimeyi okuyup doğru resmi seçtin.',
+  'Kelimeyi harf harf okuyup yeniden bakalım.', 'Cümleyi doğru kurdun. Şimdi soruyu yanıtlayalım.',
+  'Cümleyi okuyup kelimelerin sırasına yeniden bakalım.', 'Cümleyi kurdun ve doğru anladın.',
+  'Doğru yanıtı buldun.', 'Cümleyi bir kez daha okuyalım.', 'Bugünlük bu kadar! Güzel çalıştın.',
+];

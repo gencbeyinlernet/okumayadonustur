@@ -1,5 +1,5 @@
 // Küçük arayüz yardımcıları
-import { speak } from './audio.js';
+import { play, phraseKey } from './audio.js';
 import { getState } from './store.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
@@ -83,11 +83,14 @@ export function chime(ok) {
 }
 
 /** Kısa, görevle ilişkili geri bildirim. */
-export function feedback(box, msg, ok) {
+export function feedback(box, msg, ok, spoken) {
   box.className = 'feedback show ' + (ok === true ? 'ok' : ok === false ? 'bad' : 'info');
   box.innerHTML = `<span class="fb-icon">${ok === true ? '🌟' : ok === false ? '🤔' : '💡'}</span><span>${esc(msg)}</span>`;
   if (ok !== null && ok !== undefined) chime(ok);
-  if (getState().settings.speakFeedback) speak(msg.replace(/[«»]/g, ''), 0.95);
+  if (getState().settings.speakFeedback) {
+    const say = spoken || msg;
+    play(phraseKey(say), say.replace(/[«»]/g, ''), 0.95);
+  }
 }
 
 export function clearFeedback(box) {
