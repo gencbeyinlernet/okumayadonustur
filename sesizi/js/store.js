@@ -1,12 +1,16 @@
 // Yerel veri deposu (localStorage). Kişisel veri tutulmaz; öğrenciler Ö01–Ö20 kodlarıyla izlenir.
-import { GROUPS, MODULES, WORDS, SENTENCES, VOWELS } from './data.js';
+import { GROUPS, MODULES, WORDS, SENTENCES, TEXTS, VOWELS, ALL_LETTERS, letterIndex } from './data.js';
 
 const KEY = 'sesizi.v1';
 
 const defaults = () => ({
   version: 1,
+  curriculum: 2024,
+  teacher: null, // { name, school, className, year, pin } — yalnızca bu cihazda
   settings: {
-    learnedGroups: [1],
+    learnedUpTo: 5, // sınıfın geldiği son harfin sıra numarası (0 = a, 5 = l: ANETİL tamam)
+    selfPaced: false, // öğrenci harf dersini bitirince sonraki harf kendiliğinden açılsın
+    yearStart: '', // ilk okuma yazma başlangıç tarihi (haftalık plan için)
     sessionMinutes: 20,
     sessionLimit: true,
     passStreak: 3,
@@ -23,12 +27,28 @@ const defaults = () => ({
   notes: {},
 });
 
+// Eski sürüm (2019 programı, ELAKİN sırası, grup onay kutuları) verisini 2024 sırasına taşır.
+function migrate(st) {
+  const s = st.settings;
+  if (st.curriculum !== 2024) {
+    if (Array.isArray(s.learnedGroups)) {
+      const n = [6, 6, 6, 6, 5].filter((_, i) => s.learnedGroups.includes(i + 1)).reduce((a, b) => a + b, 0);
+      s.learnedUpTo = Math.max(0, Math.min(ALL_LETTERS.length - 1, n - 1));
+    }
+    st.curriculum = 2024;
+  }
+  delete s.learnedGroups;
+  if (!st.teacher && s.pin) st.teacher = { name: '', school: '', className: '', year: '', pin: s.pin };
+  delete s.pin;
+  return st;
+}
+
 function load() {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY));
     if (raw && raw.version === 1) {
       const d = defaults();
-      return { ...d, ...raw, settings: { ...d.settings, ...raw.settings }, content: { ...d.content, ...raw.content }, maxScores: { ...d.maxScores, ...raw.maxScores } };
+      return migrate({ ...d, ...raw, settings: { ...d.settings, ...raw.settings }, content: { ...d.content, ...raw.content }, maxScores: { ...d.maxScores, ...raw.maxScores } });
     }
   } catch { /* bozuk veri */ }
   return defaults();
@@ -41,7 +61,7 @@ export function save() {
 }
 export function replaceState(next) {
   const d = defaults();
-  state = { ...d, ...next, settings: { ...d.settings, ...(next.settings || {}) }, content: { ...d.content, ...(next.content || {}) } };
+  state = migrate({ ...d, ...next, settings: { ...d.settings, ...(next.settings || {}) }, content: { ...d.content, ...(next.content || {}) } });
   save();
 }
 export function resetAll() {
@@ -63,6 +83,9 @@ export function student(code) {
   if (!s) {
     s = state.students[code] = { modules: {}, unlocked: ['m1'], letters: {}, drawings: [], sessions: [], lastActive: null };
   }
+  s.lessons ||= {}; // harf dersleri: { a: { step, c, n, stars, done, date } }
+  s.certs ||= {};   // belgeler: { g1: tarih, ..., final: tarih }
+  if (s.upTo === undefined) s.upTo = null; // öğrenciye özel harf düzeyi (null = sınıf düzeyi)
   MODULES.forEach((m) => { s.modules[m.id] ||= emptyModule(); });
   return s;
 }
@@ -76,31 +99,88 @@ export function setUnlocked(code, mid, on) {
   save();
 }
 
-/** Öğrenilmiş harfler (sınıf düzeyinde, ses grubu sırasıyla). */
-export function learnedLetters() {
-  return GROUPS.filter((g) => state.settings.learnedGroups.includes(g.id)).flatMap((g) => g.letters);
+/** Sınıfın ya da öğrencinin geldiği son harfin sıra numarası. */
+export function upToIndex(code) {
+  const cls = state.settings.learnedUpTo;
+  const s = code && state.students[code];
+  return s && s.upTo != null ? s.upTo : cls;
 }
-export const maxLearnedGroup = () => Math.max(0, ...state.settings.learnedGroups);
+/** Öğrenilmiş harfler (2024 programındaki sırayla). code verilirse öğrenciye özel düzey kullanılır. */
+export function learnedLetters(code) {
+  return ALL_LETTERS.slice(0, upToIndex(code) + 1);
+}
+/** Belirli bir harfe kadar (o harf dahil) öğrenilmiş sayılan harfler: harf dersleri bu kümeyle çalışır. */
+export const lettersThrough = (ch) => ALL_LETTERS.slice(0, letterIndex(ch) + 1);
+export const maxLearnedGroup = (code) => {
+  const L = new Set(learnedLetters(code));
+  return Math.max(0, ...GROUPS.filter((g) => g.letters.every((c) => L.has(c))).map((g) => g.id));
+};
 
 const isEnabled = (id) => !state.content.disabled[id];
 const allLearned = (letters, set) => letters.every((c) => set.has(c));
+const toSet = (x) => new Set(Array.isArray(x) ? x : learnedLetters(x));
+const lettersIn = (t) => [...t.toLocaleLowerCase('tr-TR')].filter((c) => /\p{L}/u.test(c));
 
-export function availableWords() {
-  const set = new Set(learnedLetters());
-  return WORDS.filter((w) => isEnabled(w.id) && allLearned([...w.w].filter((c) => /\p{L}/u.test(c)), set));
+/** Öğrenilmiş harflerle yazılabilen kelimeler. L: öğrenci kodu ya da harf listesi. */
+export function availableWords(L) {
+  const set = toSet(L);
+  return WORDS.filter((w) => isEnabled(w.id) && allLearned(lettersIn(w.w), set));
 }
-export function availableSentences() {
-  const set = new Set(learnedLetters());
-  return SENTENCES.filter((s) => isEnabled(s.id) && allLearned([...s.t.join('').toLocaleLowerCase('tr-TR')], set));
+export function availableSentences(L) {
+  const set = toSet(L);
+  return SENTENCES.filter((s) => isEnabled(s.id) && allLearned(lettersIn(s.t.join('')), set));
 }
-export function availableSyllables() {
-  const L = learnedLetters();
-  const vs = L.filter((c) => VOWELS.has(c));
-  const cs = L.filter((c) => !VOWELS.has(c) && c !== 'ğ');
+export function availableTexts(L) {
+  const set = toSet(L);
+  return TEXTS.filter((t) => isEnabled(t.id) && allLearned(lettersIn(t.s.join('')), set));
+}
+export function availableSyllables(L) {
+  const Ls = [...toSet(L)];
+  const vs = Ls.filter((c) => VOWELS.has(c));
+  const cs = Ls.filter((c) => !VOWELS.has(c) && c !== 'ğ');
   const out = [];
   cs.forEach((c) => vs.forEach((v) => { out.push(c + v); out.push(v + c); }));
   return [...new Set(out)];
 }
+
+// ---- Harf dersleri, yıldızlar ve belgeler ----
+export const starsFor = (c, n) => (!n ? 0 : c / n >= 0.9 ? 3 : c / n >= 0.7 ? 2 : 1);
+export function lessonOf(code, ch) {
+  const s = student(code);
+  return (s.lessons[ch] ||= { step: 0, c: 0, n: 0, stars: 0, done: false, date: null, best: 0 });
+}
+/** Öğrencinin harf dersini açabileceği son harf (sınıf düzeyi, öğrenciye özel düzey ya da kendi hızında ilerleme). */
+export function lessonLimit(code) {
+  const s = student(code);
+  let lim = upToIndex(code);
+  if (state.settings.selfPaced) {
+    let k = 0;
+    while (k < ALL_LETTERS.length && s.lessons[ALL_LETTERS[k]] && s.lessons[ALL_LETTERS[k]].done) k++;
+    lim = Math.max(lim, Math.min(ALL_LETTERS.length - 1, k));
+  }
+  return lim;
+}
+export function finishLesson(code, ch) {
+  const s = student(code);
+  const L = lessonOf(code, ch);
+  const stars = starsFor(L.c, L.n);
+  L.done = true;
+  L.stars = Math.max(L.stars || 0, stars);
+  L.best = Math.max(L.best || 0, L.n ? L.c / L.n : 0);
+  L.date = Date.now();
+  L.step = 0; L.c = 0; L.n = 0;
+  const newCerts = [];
+  GROUPS.forEach((g) => {
+    const key = 'g' + g.id;
+    if (!s.certs[key] && g.letters.every((c) => s.lessons[c] && s.lessons[c].done)) { s.certs[key] = Date.now(); newCerts.push(key); }
+  });
+  if (!s.certs.final && GROUPS.every((g) => s.certs['g' + g.id])) { s.certs.final = Date.now(); newCerts.push('final'); }
+  s.lastActive = Date.now();
+  save();
+  return { stars, newCerts };
+}
+export const totalStars = (code) => Object.values(student(code).lessons).reduce((a, l) => a + (l.done ? l.stars : 0), 0);
+export const lettersDone = (code) => ALL_LETTERS.filter((c) => (student(code).lessons[c] || {}).done).length;
 
 /**
  * Bir yanıtı kaydeder; geçiş ölçütünü (art arda N ipucusuz doğru) uygular.

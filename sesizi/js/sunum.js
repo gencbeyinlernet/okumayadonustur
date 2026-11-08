@@ -114,12 +114,18 @@ const SLIDES = [
       ${img('m6-oku-eslestir.png', 'Kelime okuma ve görsel eşleştirme ekranı', 'Öğrenci kelimeyi okur, anlamına uygun resmi seçer')}
       ${img('m7-cumle.png', 'Cümle kur ve anla ekranı', 'Kelimeler sıraya konur, ardından soru yanıtlanır')}
     </div>` },
+  { title: 'Harf yolculuğu ve başarı belgeleri', html: `
+    <div class="two">
+      ${img('harf-yolculugu.png', 'Harf yolculuğu haritası', 'Harf yolculuğu: 29 harf, 2024 programındaki sırayla; her harfte yıldızlar')}
+      ${img('harf-dersi.png', 'Harf dersi: harfle tanış', 'Harf dersi: sesi dinleme, yazılış animasyonu, sesi içeren resimli kelimeler')}
+    </div>
+    <p class="muted center">Her harf dersi ses temelli cümle yönteminin basamaklarını izler: sesi bul ve sesin kelimedeki yeri → harfi tanı ve ayırt et → iz takibi, büyük harf, rehbersiz ve bağımsız yazma → hece → kelime → cümle → grup sonunda kısa metin. Bir harf grubu bitince grup belgesi, bütün harfler bitince “İlk Okuma Yazma Başarı Belgesi” verilir.</p>` },
   { title: 'Ses ve içerik ilkeleri', html: `
     <div class="two">
       <div>
-        <h3>Ses grupları (MEB sırası)</h3>
-        <div class="groups-slide">${GROUPS.map((g) => `<div><b>${g.id}. grup</b> ${g.letters.map((c) => `<span class="chip lc">${c}</span>`).join('')}</div>`).join('')}</div>
-        <p class="muted">Öğretmen sınıfta öğrenilmiş grupları seçer; etkinlikler yalnızca bu sesleri kullanır. Ör. “elma”, içerdiği bütün sesler (e, l, m, a) öğretildikten sonra açılır.</p>
+        <h3>Harf grupları (2024 Türkçe dersi öğretim programı)</h3>
+        <div class="groups-slide">${GROUPS.map((g) => `<div><b>${g.id}. grup</b> <small>${g.weeks} hafta</small> ${g.letters.map((c) => `<span class="chip lc">${c}</span>`).join('')}</div>`).join('')}</div>
+        <p class="muted">Öğretmen sınıfın geldiği harfi seçer; etkinlikler yalnızca o harfe kadar öğretilen sesleri kullanır. Ör. “elma” (e, l, m, a), 2. gruptaki “m” harfi öğretildikten sonra açılır.</p>
       </div>
       <ul class="ticks">
         <li><b>Geri bildirim</b> kısa ve görevle ilişkili: “Başlangıç noktasına dönüp bir kez daha deneyelim.”</li>
@@ -132,7 +138,9 @@ const SLIDES = [
     <div class="two">
       ${img('ogretmen-icerik.png', 'Öğretmen paneli içerik kontrolü', 'İçerik kontrolü: ses kaydı, harf biçimi, kelime onayı')}
       <ul class="ticks">
-        <li><b>Sınıf ve ayarlar:</b> öğrenilmiş ses grupları, oturum süresi, geçiş ölçütü, PIN</li>
+        <li><b>Öğretmen hesabı:</b> ad, okul, sınıf ve PIN ile giriş (veriler yalnızca cihazda)</li>
+        <li><b>Sınıf ve müfredat:</b> sınıfın geldiği harf, 16 haftalık plan, öğrenciye özel harf düzeyi, oturum süresi, geçiş ölçütü</li>
+        <li><b>Belgeler:</b> grup ve okuma yazma başarı belgeleri, toplu yazdırma</li>
         <li><b>İlerleme:</b> öğrenci kodu bazında modül durumu, zorlanılan sesler, çizim puanları, gözlem notları, modül kilidi açma</li>
         <li><b>İçerik kontrolü:</b> sesleri mikrofonla kaydetme, harf yazım yolunu inceleme, “kontrol edildi / düzeltildi” işaretleri, Ek 2 listesi</li>
         <li><b>Ölçme ve analiz:</b> ön test–son test girişi, Tablo 3, Wilcoxon, Şekil 5, yazdırılabilir ölçme formları (Ek 1)</li>

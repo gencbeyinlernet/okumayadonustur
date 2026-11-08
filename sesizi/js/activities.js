@@ -1,6 +1,6 @@
 // Yedi modülün etkinlikleri ve ortak etkinlik motoru.
-import { MODULE_BY_ID, MODULES, CONFUSABLE, MIRRORABLE, SYMBOLS, WORDS, ALL_LETTERS, VOWELS, upper, lettersOf, sentenceText } from './data.js';
-import { student, getState, learnedLetters, availableWords, availableSentences, availableSyllables, recordAnswer, recordDrawing, letterWeight } from './store.js';
+import { MODULE_BY_ID, MODULES, CONFUSABLE, MIRRORABLE, SYMBOLS, WORDS, ALL_LETTERS, VOWELS, upper, lower, lettersOf, sentenceText, textBody } from './data.js';
+import { student, getState, learnedLetters, availableWords, availableSentences, availableSyllables, availableTexts, recordAnswer, recordDrawing, letterWeight } from './store.js';
 import { playLetter, playWord, playSyllable, play, sentenceKey, questionKey } from './audio.js';
 import { TraceBoard, LEVELS } from './draw.js';
 import { $, $$, h, esc, shuffle, pick, placeAnswer, weightedPick, feedback, clearFeedback } from './ui.js';
@@ -8,7 +8,7 @@ import { $, $$, h, esc, shuffle, pick, placeAnswer, weightedPick, feedback, clea
 const focusByStudent = {};
 let activeBoard = null;
 let timers = [];
-const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+export const later = (fn, ms) => timers.push(setTimeout(fn, ms));
 export function stopActivity() {
   timers.forEach(clearTimeout);
   timers = [];
@@ -25,7 +25,7 @@ export function runModule(root, code, mid, { teacher = false, onBack } = {}) {
   stopActivity();
   const mod = MODULE_BY_ID[mid];
   const ms = student(code).modules[mid];
-  const learned = learnedLetters();
+  const learned = learnedLetters(code);
   const passStreak = getState().settings.passStreak;
 
   root.innerHTML = `
@@ -73,6 +73,10 @@ export function runModule(root, code, mid, { teacher = false, onBack } = {}) {
       return out;
     },
     next() { clearFeedback(fb); ROUNDS[mid](ctx); },
+    words: () => availableWords(learned),
+    syllables: () => availableSyllables(learned),
+    sentences: () => availableSentences(learned),
+    texts: () => availableTexts(learned),
   };
 
   function updateHead() {
@@ -124,10 +128,11 @@ const soundBtn = (label = 'Dinle') => `<button class="btn sound" data-sound aria
 // ---------- Modül 1: Sesi fark et ve harfi tanı ----------
 function m1(ctx) {
   const { body, fb, learned } = ctx;
-  if (learned.length < 2) return insufficient(body, 'Bu etkinlik için en az iki öğrenilmiş ses gerekir.');
-  const target = ctx.pickLetter();
-  const nOpt = Math.min(learned.length, learned.length >= 8 ? 4 : 3);
-  const opts = placeAnswer('m1', [target, ...letterDistractors(target, learned, nOpt - 1)], target);
+  // Çok az harf öğrenilmişken (ilk harfler) çeldiriciler programdaki ilk harflerden seçilir.
+  const pool = learned.length >= 4 ? learned : ALL_LETTERS.slice(0, Math.max(6, learned.length + 3));
+  const target = ctx.pickLetter(learned);
+  const nOpt = Math.min(pool.length, pool.length >= 8 ? 4 : 3);
+  const opts = placeAnswer('m1', [target, ...letterDistractors(target, pool, nOpt - 1)], target);
   let answered = false, hints = 0;
   body.innerHTML = `
     <div class="prompt">${soundBtn('Sesi dinle')}<p>Sesi dinle. Bu sesin harfini seç.</p></div>
@@ -213,7 +218,8 @@ function m4(ctx) { traceRound(ctx, true); }
 function traceRound(ctx, independent) {
   const { body, fb, learned, teacher } = ctx;
   if (!learned.length) return insufficient(body, 'Öğrenilmiş ses bulunmuyor.');
-  const target = ctx.pickLetter();
+  const sound = ctx.pickLetter();
+  const target = ctx.upperCase ? upper(sound) : sound; // büyük harf yazımı (harf derslerinde)
   const level = independent ? LEVELS.FREE : (ctx.levelOverride || ctx.stage + 1);
   const mode = getState().settings.writeMode;
   const hidden = independent && (mode === 'soyle' || (mode === 'karisik' && Math.random() < 0.5));
@@ -224,7 +230,7 @@ function traceRound(ctx, independent) {
       <div class="target-card ${hidden ? 'hidden-letter' : ''}" data-card><span class="lc">${hidden ? '?' : target}</span></div>
       ${soundBtn()}
       <p>${independent ? (hidden ? 'Sesi dinle ve harfini kendin yaz.' : 'Bu harfi boş alana kendin yaz.') : 'Yeşil noktadan başla, okları izle.'}</p>
-      ${!independent ? `<div class="level-tabs" role="tablist">${levelNames.map((n, i) =>
+      ${!independent && !ctx.lesson ? `<div class="level-tabs" role="tablist">${levelNames.map((n, i) =>
         `<button class="tab ${level === i + 1 ? 'on' : ''}" data-lv="${i + 1}" ${teacher ? '' : 'disabled'}>${n}</button>`).join('')}</div>` : ''}
     </div>
     <div data-board></div>
@@ -237,7 +243,7 @@ function traceRound(ctx, independent) {
   if (activeBoard) activeBoard.destroy();
   const board = activeBoard = new TraceBoard($('[data-board]', body));
   board.setLetter(target, level);
-  const say = () => playLetter(target);
+  const say = () => playLetter(sound);
   $('[data-sound]', body).onclick = say;
   later(say, 250);
   $('[data-clear]', body).onclick = () => { board.clear(); clearFeedback(fb); };
@@ -252,10 +258,10 @@ function traceRound(ctx, independent) {
     if (r.ok) {
       success = true;
       feedback(fb, independent ? `«${target}» harfini kendin yazdın.` : 'İzi baştan sona takip ettin.', true, independent ? 'Harfi kendin yazdın.' : null);
-      const out = ctx.result({ correct: true, letters: [target], hints });
+      const out = ctx.result({ correct: true, letters: [sound], hints });
       if (!out.interrupted) later(() => ctx.next(), 1600);
     } else {
-      ctx.result({ correct: false, letters: [target], hints });
+      ctx.result({ correct: false, letters: [sound], hints });
       board.showStartHint();
       feedback(fb, r.coverage < 0.7 ? 'Başlangıç noktasına dönüp bir kez daha deneyelim.' : 'Çizgilerin dışına taştı. Yavaşça bir kez daha deneyelim.', false);
       later(() => board.clear() || board.showStartHint(), 1600);
@@ -268,9 +274,9 @@ function m5(ctx) {
   const { body, fb, learned } = ctx;
   let stageIdx = ctx.stage;
   let items;
-  const words = availableWords().filter((w) => [...w.w].length <= 7);
+  const words = ctx.words().filter((w) => [...w.w].length <= 7);
   if (stageIdx === 1 && words.length) items = words.map((w) => ({ text: w.w, emoji: w.e, word: true }));
-  else items = availableSyllables().map((s) => ({ text: s }));
+  else items = ctx.syllables().map((s) => ({ text: s }));
   if (!items.length) return insufficient(body, 'Hece kurmak için en az bir ünlü ve bir ünsüz öğrenilmiş olmalı.');
   const item = weightedPick(items, (it) => Math.max(...lettersOf(it.text).map((c) => letterWeight(ctx.code, c, 'm5'))), ctx._lastItem);
   ctx._lastItem = item;
@@ -332,7 +338,7 @@ function m5(ctx) {
 // ---------- Modül 6: Oku ve eşleştir ----------
 function m6(ctx) {
   const { body, fb } = ctx;
-  const words = availableWords();
+  const words = ctx.words();
   if (!words.length) return insufficient(body, 'Öğrenilmiş seslerle oluşturulmuş kelime henüz yok.');
   const w = weightedPick(words, (x) => Math.max(...lettersOf(x.w).map((c) => letterWeight(ctx.code, c, 'm6'))), ctx._lastW);
   ctx._lastW = w;
@@ -368,7 +374,8 @@ function m6(ctx) {
 // ---------- Modül 7: Cümle kur ve anla ----------
 function m7(ctx) {
   const { body, fb } = ctx;
-  const sents = availableSentences();
+  if (ctx.stage === 1) { const ts = ctx.texts(); if (ts.length) return textRound(ctx, ts); }
+  const sents = ctx.sentences();
   if (!sents.length) return insufficient(body, 'Öğrenilmiş seslerle oluşturulmuş cümle henüz yok.');
   const s = weightedPick(sents, () => 1, ctx._lastS);
   ctx._lastS = s;
@@ -439,4 +446,47 @@ function m7(ctx) {
   }
 }
 
-const ROUNDS = { m1, m2, m3, m4, m5, m6, m7 };
+// ---------- Modül 7, 2. aşama: Kısa metin (okuma ve okuduğunu anlama) ----------
+export function textRound(ctx, texts) {
+  const { body, fb } = ctx;
+  const t = weightedPick(texts, () => 1, ctx._lastT);
+  ctx._lastT = t;
+  let qi = 0, allFirst = true, hints = 0, nRight = 0;
+  body.innerHTML = `
+    <div class="text-card">
+      <h3 class="text-title lc">${esc(t.title)}</h3>
+      ${t.s.map((x) => `<p class="text-line lc">${esc(x)}</p>`).join('')}
+    </div>
+    <div class="prompt"><p>Metni oku. Bitirince sorulara geç.</p></div>
+    <div class="act-tools">${soundBtn('Dinle (ipucu)')}<button class="btn primary big" data-go>Okudum →</button></div>`;
+  $('[data-sound]', body).onclick = () => { hints = 1; play('metin:' + t.id, textBody(t), 0.8); };
+  $('[data-go]', body).onclick = () => ask();
+  function ask() {
+    clearFeedback(fb);
+    const q = t.qs[qi];
+    const opts = placeAnswer('m7t', [q.a, ...q.d], q.a);
+    let first = null;
+    body.innerHTML = `
+      <div class="text-card small">${t.s.map((x) => `<p class="text-line lc">${esc(x)}</p>`).join('')}</div>
+      <div class="prompt">${soundBtn('Soruyu dinle')}<p class="question">${esc(q.q)}</p><span class="chip">${qi + 1}/${t.qs.length}</span></div>
+      <div class="choices pics">${opts.map((e) => `<button class="choice pic-card" data-e="${e}">${e}</button>`).join('')}</div>`;
+    const sayQ = () => play(questionKey(q.q), q.q, 0.85);
+    $('[data-sound]', body).onclick = sayQ;
+    later(sayQ, 300);
+    $$('.choice', body).forEach((b) => b.onclick = () => {
+      const ok = b.dataset.e === q.a;
+      if (first === null) { first = ok; if (ok) nRight++; else allFirst = false; }
+      if (!ok) { b.classList.add('wrong'); b.disabled = true; feedback(fb, 'Metni bir kez daha okuyalım.', false); return; }
+      b.classList.add('right');
+      $$('.choice', body).forEach((x) => x.disabled = true);
+      qi++;
+      if (qi < t.qs.length) { feedback(fb, 'Doğru yanıtı buldun.', true); later(ask, 1300); return; }
+      feedback(fb, allFirst ? 'Metni okudun ve bütün soruları doğru yanıtladın.' : 'Doğru yanıtı buldun.', true, allFirst ? 'Metni okudun ve soruları doğru yanıtladın.' : 'Doğru yanıtı buldun.');
+      const out = ctx.result({ correct: allFirst, letters: lettersOf(textBody(t)), hints, extra: { metinSoruDogru: nRight, metinSoruYanlis: t.qs.length - nRight } });
+      if (!out.interrupted) later(() => ctx.next(), 1700);
+    });
+  }
+}
+
+export const ROUNDS = { m1, m2, m3, m4, m5, m6, m7 };
+

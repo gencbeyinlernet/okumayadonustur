@@ -1,6 +1,6 @@
 // $P nokta bulutu tanıyıcısı (Vatavu, Anthony ve Wobbrock, 2012).
 // Çizgi sırasından ve yönünden bağımsızdır; rehbersiz yazılan harfin hangi harfe en çok benzediğini bulur.
-import { STROKES, sampleLetter } from './strokes.js';
+import { STROKES, sampleLetter, isLowerKey } from './strokes.js';
 
 const N = 32;
 
@@ -77,7 +77,7 @@ export function toCloud(strokes) {
 let templates = null;
 function getTemplates() {
   if (templates) return templates;
-  templates = Object.keys(STROKES).map((ch) => ({ ch, cloud: toCloud(sampleLetter(ch).strokes.map((s) => s.pts)) }));
+  templates = Object.keys(STROKES).filter(isLowerKey).map((ch) => ({ ch, cloud: toCloud(sampleLetter(ch).strokes.map((s) => s.pts)) }));
   return templates;
 }
 

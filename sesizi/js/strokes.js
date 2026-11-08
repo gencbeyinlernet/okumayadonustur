@@ -65,6 +65,50 @@ export const STROKES = {
   ü: { w: 50, s: [...base.u.s, dot(18, 30), dot(32, 30)] },
 };
 
+// Dik temel büyük harfler: üst çizgi (y=10) ile taban çizgisi (y=70) arasında.
+const capDot = (x) => dot(x, 3.5);
+const C_ARC = arc(36, 40, 30, 42, 318);
+const G_ARC = arc(36, 40, 30, 42, 352);
+const P_BOWL = 'M 10 10 L 26 10 Q 42 10 42 25 Q 42 40 26 40 L 10 40';
+const S_UP = 'M 44 19 Q 39 10 27 10 Q 12 10 12 24 Q 12 37 28 40 Q 44 43 44 56 Q 44 70 28 70 Q 14 70 9 61';
+const U_UP = 'M 10 10 L 10 50 Q 10 70 26 70 Q 42 70 42 50 L 42 10';
+const O_UP = circle(35, 40, 30, 90, true);
+const capsBase = {
+  A: { w: 50, s: ['M 25 10 L 8 70', 'M 25 10 L 42 70', L(14, 48, 36, 48)] },
+  B: { w: 50, s: [L(10, 10, 10, 70), 'M 10 10 L 25 10 Q 38 10 38 24 Q 38 38 25 38 L 10 38', 'M 10 38 L 27 38 Q 42 38 42 54 Q 42 70 27 70 L 10 70'] },
+  C: { w: 64, s: [C_ARC] },
+  D: { w: 52, s: [L(10, 10, 10, 70), 'M 10 10 L 22 10 Q 46 10 46 40 Q 46 70 22 70 L 10 70'] },
+  E: { w: 48, s: [L(12, 10, 12, 70), L(12, 10, 40, 10), L(12, 40, 36, 40), L(12, 70, 40, 70)] },
+  F: { w: 46, s: [L(12, 10, 12, 70), L(12, 10, 40, 10), L(12, 40, 36, 40)] },
+  G: { w: 68, s: [G_ARC + ' L 46 44.18'] },
+  H: { w: 52, s: [L(10, 10, 10, 70), L(42, 10, 42, 70), L(10, 40, 42, 40)] },
+  I: { w: 30, s: [L(15, 10, 15, 70)] },
+  J: { w: 44, s: ['M 34 10 L 34 55 Q 34 70 21 70 Q 10 70 7 61'] },
+  K: { w: 46, s: [L(10, 10, 10, 70), 'M 40 10 L 11 42 L 41 70'] },
+  L: { w: 44, s: ['M 12 10 L 12 70 L 40 70'] },
+  M: { w: 60, s: [L(8, 10, 8, 70), 'M 8 10 L 30 50 L 52 10', L(52, 10, 52, 70)] },
+  N: { w: 52, s: [L(10, 10, 10, 70), 'M 10 10 L 42 70', L(42, 70, 42, 10)] },
+  O: { w: 70, s: [O_UP] },
+  P: { w: 48, s: [L(10, 10, 10, 70), P_BOWL] },
+  R: { w: 50, s: [L(10, 10, 10, 70), P_BOWL, 'M 24 40 L 42 70'] },
+  S: { w: 52, s: [S_UP] },
+  T: { w: 50, s: [L(6, 10, 44, 10), L(25, 10, 25, 70)] },
+  U: { w: 52, s: [U_UP] },
+  V: { w: 50, s: ['M 8 10 L 25 70 L 42 10'] },
+  Y: { w: 50, s: ['M 8 10 L 25 38', 'M 42 10 L 25 38 L 25 70'] },
+  Z: { w: 50, s: ['M 8 10 L 42 10 L 8 70 L 42 70'] },
+};
+Object.assign(STROKES, capsBase, {
+  'İ': { w: 30, s: [...capsBase.I.s, capDot(15)] },
+  'Ç': { w: 64, s: [C_ARC, cedilla(36)] },
+  'Ğ': { w: 68, s: [capsBase.G.s[0], 'M 26 1.5 Q 36 8 46 1.5'] },
+  'Ö': { w: 70, s: [O_UP, capDot(26), capDot(44)] },
+  'Ş': { w: 52, s: [S_UP, cedilla(28)] },
+  'Ü': { w: 52, s: [U_UP, capDot(19), capDot(33)] },
+});
+/** Küçük harf mi (dik temel küçük harf şablonları)? */
+export const isLowerKey = (ch) => ch === ch.toLocaleLowerCase('tr-TR');
+
 // ---- Örnekleme (SVG geometri API'si ile) ----
 let svgNS;
 function svgPath(d) {

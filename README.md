@@ -14,15 +14,11 @@ Her proje için önce **sunum**, ardından çalışan **web uygulaması**. Kurul
 İlk okuma yazma sürecinde sesten harfe ve kelimeye aşamalı dijital etkinlikler.
 
 - **Sunum** (`sesizi/#/sunum`): proje özeti, problem, amaç, hedefler, bilimsel temel, öğrenme akışı (Şekil 1), modüller (Tablo 1), uygulama ekranları (Şekil 2–4), yöntem, analiz, etik, iş-zaman çizelgesi, sınırlılıklar ve kaynaklar. Klavye okları, kaydırma hareketi ve tam ekran desteklenir.
-- **Uygulama** (`sesizi/#/uygulama`): Ö01–Ö20 kodlarıyla öğrenci girişi ve yedi modül:
-  1. Sesi fark et ve harfi tanı
-  2. Harfi ayırt et
-  3. İzi takip et (tam rehber → azaltılmış rehber → rehbersiz)
-  4. Bağımsız yaz
-  5. Birleştir (hece → kelime)
-  6. Oku ve eşleştir
-  7. Cümle kur ve anla
-- **Öğretmen paneli** (`sesizi/#/ogretmen`): öğrenilmiş ses grupları, oturum süresi, geçiş ölçütü, PIN; öğrenci ilerlemesi ve zorlanılan sesler; içerik kontrolü ve mikrofonla ses kaydı (Ek 2); ön test–son test girişi, Tablo 3 (Wilcoxon işaretli sıralar testi, kesin p, etki büyüklüğü r), Şekil 5, yazdırılabilir ölçme formları (Ek 1); JSON/CSV dışa aktarma.
+- **Uygulama** (`sesizi/#/uygulama`): Ö01–Ö20 kodlarıyla öğrenci girişi.
+  - **Harf yolculuğu:** 29 harf, Türkiye Yüzyılı Maarif Modeli 2024 Türkçe dersi öğretim programındaki sırayla: ANETİL · OKURIM · ÜSÖYDZ · ÇBGCŞ · PHVĞFJ (6/4/2/2/2 hafta). Her harf dersi: harfle tanış (ses, yazılış animasyonu, resimli kelimeler) → sesi bul → ses nerede (başta/ortada/sonda) → harfi tanı → ayırt et → iz takibi (tam/azaltılmış rehber) → büyük harf → rehbersiz ve bağımsız yazma → hece → kelime → cümle → grup sonunda kısa metin. Yıldızlar ilk denemedeki doğruluğa göre verilir.
+  - **Belgeler:** her harf grubu bitince grup başarı belgesi, bütün harfler bitince İlk Okuma Yazma Başarı Belgesi (A4, yazdır/PDF). Öğrenci adı yalnızca yazdırırken girilir, saklanmaz.
+  - **Serbest çalışma:** yedi modül (Tablo 1): sesi fark et ve harfi tanı, harfi ayırt et, izi takip et, bağımsız yaz, birleştir (hece → kelime), oku ve eşleştir, cümle kur ve anla (cümle → kısa metin).
+- **Öğretmen paneli** (`sesizi/#/ogretmen`): öğretmen hesabı (ad, okul, sınıf, PIN ile giriş); sınıfın geldiği harf, 16 haftalık plan, öğrenciye özel harf düzeyi, kendi hızında ilerleme; harf × öğrenci yıldız tablosu, modül ilerlemesi, zorlanılan sesler; belgeler ve toplu yazdırma; içerik kontrolü ve mikrofonla ses kaydı (Ek 2); ön test–son test, Tablo 3 (Wilcoxon, kesin p, r), Şekil 5, ölçme formları (Ek 1); JSON/CSV dışa aktarma.
 
 ### Teknik notlar
 
@@ -30,7 +26,8 @@ Her proje için önce **sunum**, ardından çalışan **web uygulaması**. Kurul
 - Veriler yalnızca tarayıcıda (`localStorage`, ses kayıtları `IndexedDB`) saklanır; sunucuya gönderilmez.
 - Ses: öncelik öğretmen kaydı → `sesizi/audio/` altındaki hazır Türkçe ses dosyaları → tarayıcının metin okuma sesi. Hazır sesler Gemini TTS ile toplu üretildi, sessizliklerden bölündü ve otomatik yazıya döküm ile denetlendi. Patlamalı ünsüzler hece kayıtlarından ünlü başlamadan önce kesilerek türetildi; öğretmenin dinleyip gerekirse kendi sesiyle kaydetmesi önerilir. API anahtarı depoda yer almaz.
 - Çizim puanlaması: yön uyumlu kapsama, en zayıf çizgi, isabet ve uç noktalar; rehbersiz düzeylerde ek olarak $P nokta bulutu tanıyıcısı (Vatavu vd., 2012) ve satır yerleşimi denetimi.
-- Kelime ve cümleler, içerdikleri bütün harfler öğrenilmiş ses gruplarında olduğunda otomatik açılır.
+- Kelime, cümle ve metinler, içerdikleri bütün harfler öğretildiğinde otomatik açılır.
+- Veriler cihazda tutulur; çok cihazlı kullanım için yedekle/içe aktar vardır. Bulut veri tabanı (eş zamanlı öğretmen hesabı) sonraki sürümde eklenecektir.
 
 ### Yerel çalıştırma
 

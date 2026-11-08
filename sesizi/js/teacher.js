@@ -1,9 +1,10 @@
 // Öğretmen paneli: sınıf ayarları, ilerleme, içerik kontrolü, ölçme (ön test–son test), veri.
-import { GROUPS, MODULES, WORDS, SENTENCES, ALL_LETTERS, VOWELS, upper, sentenceText } from './data.js';
+import { GROUPS, MODULES, WORDS, SENTENCES, TEXTS, ALL_LETTERS, VOWELS, upper, sentenceText, textBody, letterIndex, CURRICULUM } from './data.js';
 import {
   getState, save, codes, student, setUnlocked, resetStudent, resetAll, replaceState, learnedLetters,
-  availableWords, availableSentences, availableSyllables, sessionMinutes,
+  availableWords, availableSentences, availableSyllables, availableTexts, sessionMinutes, upToIndex, totalStars, lettersDone,
 } from './store.js';
+import { certTitle, openCertificate, printCertificates } from './certificate.js';
 import {
   playLetter, playWord, play, hasRecording, saveRecording, deleteRecording, recordingCount, loadRecordingKeys,
   soundKey, wordKey, sentenceKey, Recorder, canRecord, hasTurkishVoice, ttsAvailable, hasBundled, bundledCount, whenBundledReady,
@@ -13,41 +14,88 @@ import { mean, sd, wilcoxon, SKILLS } from './stats.js';
 import { $, $$, h, esc, toast, modal, confirmBox, download, toCSV, pct, fmt } from './ui.js';
 
 const TABS = [
-  ['sinif', '⚙️ Sınıf ve ayarlar'],
+  ['sinif', '⚙️ Sınıf ve müfredat'],
   ['ilerleme', '📈 İlerleme'],
+  ['belgeler', '🏅 Belgeler'],
   ['icerik', '🔤 İçerik kontrolü'],
   ['olcme', '📊 Ölçme ve analiz'],
   ['veri', '💾 Veri'],
 ];
 
-export function renderTeacher(root, tab = 'sinif', arg) {
+let onLogout = () => {};
+export function renderTeacher(root, tab = 'sinif', arg, { logout } = {}) {
+  if (logout) onLogout = logout;
   if (!TABS.some(([id]) => id === tab)) tab = 'sinif';
+  const T = getState().teacher || {};
   root.innerHTML = `
   <section class="teacher">
-    <div class="t-head"><h2>Öğretmen paneli</h2>
-      <p class="muted">Uygulama öğretmen gözetiminde, kısa oturumlarla kullanılmak üzere tasarlanmıştır. Öğrenciler yalnızca kodlarıyla izlenir.</p></div>
+    <div class="t-head row between">
+      <div><h2>Öğretmen paneli</h2>
+      <p class="muted">👩‍🏫 <b>${esc(T.name || '')}</b>${T.school ? ' · ' + esc(T.school) : ''}${T.className ? ' · ' + esc(T.className) : ''}${T.year ? ' · ' + esc(T.year) : ''}</p></div>
+      <button class="btn ghost" data-logout>Çıkış yap</button></div>
     <nav class="tabs" role="tablist">${TABS.map(([id, n]) => `<a class="tab ${id === tab ? 'on' : ''}" href="#/ogretmen/${id}">${n}</a>`).join('')}</nav>
     <div class="t-body" data-tbody></div>
   </section>`;
   const body = $('[data-tbody]', root);
-  ({ sinif, ilerleme, icerik, olcme, veri })[tab](body, arg);
+  $('[data-logout]', root).onclick = () => onLogout();
+  ({ sinif, ilerleme, belgeler, icerik, olcme, veri })[tab](body, arg);
 }
 
-// ================= Sınıf ve ayarlar =================
+// ================= Sınıf ve müfredat =================
+/** 2024 programındaki önerilen sürelere göre (6, 4, 2, 2, 2 hafta) harflerin plan haftaları. */
+export function letterPlan() {
+  const out = [];
+  let w0 = 0;
+  GROUPS.forEach((g) => {
+    const per = g.weeks / g.letters.length;
+    g.letters.forEach((c, i) => out.push({ ch: c, g: g.id, from: w0 + i * per, to: w0 + (i + 1) * per }));
+    w0 += g.weeks;
+  });
+  return out;
+}
+const TOTAL_WEEKS = GROUPS.reduce((a, g) => a + g.weeks, 0);
+
+function planNow(start) {
+  if (!start) return null;
+  const t0 = new Date(start + 'T00:00:00');
+  if (isNaN(t0)) return null;
+  const week = (Date.now() - t0) / (7 * 864e5);
+  const plan = letterPlan();
+  const cur = plan.find((p) => week >= p.from && week < p.to) || (week >= TOTAL_WEEKS ? plan[plan.length - 1] : null);
+  return { week, cur };
+}
+
 function sinif(body) {
-  const st = getState().settings;
+  const S = getState();
+  const st = S.settings;
+  const T = S.teacher || {};
   whenBundledReady().then(() => { const b = $('[data-bundled]', body); if (b) b.textContent = bundledCount(); });
   const ttsOk = ttsAvailable() && hasTurkishVoice();
+  const plan = letterPlan();
   body.innerHTML = `
+  <div class="card">
+    <h3>Sınıfın geldiği harf</h3>
+    <p class="muted">${esc(CURRICULUM)}: harfler gruplar hâlinde ve bu sırayla verilir. Sınıfın son öğrendiği harfe dokunun; öğrenciler bu harfe kadar olan harf derslerini açabilir, etkinliklerde yalnızca bu harflerden oluşan hece, kelime, cümle ve metinler kullanılır.</p>
+    <div class="letter-path">${GROUPS.map((g) => `
+      <div class="lp-group" style="--gc:${g.color}">
+        <div class="lp-head"><b>${g.id}. grup</b> <span class="lc">${g.name}</span> <small>${g.weeks} hafta</small></div>
+        <div class="lp-letters">${g.letters.map((c) => { const i = letterIndex(c); return `<button class="lp-l ${i <= st.learnedUpTo ? 'on' : ''} ${i === st.learnedUpTo ? 'cur' : ''}" data-up="${i}"><span class="lc">${upper(c)}${c}</span><small>${i + 1}</small></button>`; }).join('')}</div>
+      </div>`).join('')}</div>
+    <div class="avail" data-avail></div>
+    <label class="check"><input type="checkbox" data-k="selfPaced" ${st.selfPaced ? 'checked' : ''}> Kendi hızında ilerleme: öğrenci bir harf dersini bitirince sıradaki harf kendiliğinden açılsın</label>
+  </div>
   <div class="cards2">
     <div class="card">
-      <h3>Öğrenilmiş ses grupları</h3>
-      <p class="muted">Etkinliklerde yalnızca seçili gruplardaki sesler ve bu seslerden oluşan kelimeler kullanılır.</p>
-      <div class="groups">${GROUPS.map((g) => `
-        <label class="group-row"><input type="checkbox" data-g="${g.id}" ${st.learnedGroups.includes(g.id) ? 'checked' : ''}>
-          <b>${g.id}. grup</b> <span class="chips">${g.letters.map((c) => `<span class="chip lc">${c}</span>`).join('')}</span></label>`).join('')}
-      </div>
-      <div class="avail" data-avail></div>
+      <h3>Haftalık plan (16 hafta)</h3>
+      <label class="field">İlk okuma yazma başlangıç tarihi
+        <input type="date" data-k="yearStart" value="${esc(st.yearStart || '')}"></label>
+      <div data-plan></div>
+      <details><summary>Plan tablosu</summary>
+        <div class="table-wrap"><table class="stats"><thead><tr><th>Hafta</th><th>Grup</th><th>Harf</th></tr></thead><tbody>
+        ${plan.map((p) => `<tr><td>${(p.from + 1).toFixed(1).replace('.0', '').replace('.', ',')}–${p.to.toFixed(1).replace('.0', '').replace('.', ',')}</td><td>${p.g}</td><td class="lc">${upper(p.ch)}${p.ch}</td></tr>`).join('')}
+        </tbody></table></div>
+        <p class="muted">Programda önerilen süreler: 1. grup 6 hafta, 2. grup 4 hafta, 3., 4. ve 5. gruplar ikişer hafta. Tatiller ve sınıfın hızı hesaba katılmaz; plan yalnızca yol göstericidir.</p>
+      </details>
     </div>
     <div class="card">
       <h3>Oturum ve geçiş</h3>
@@ -58,7 +106,7 @@ function sinif(body) {
         <input type="number" min="1" max="10" data-k="passStreak" value="${st.passStreak}"></label>
       <label class="field">Öğrenci sayısı
         <input type="number" min="1" max="60" data-k="studentCount" value="${st.studentCount}"></label>
-      <label class="field">Bağımsız yaz modülünde harf
+      <label class="field">Bağımsız yaz etkinliğinde harf
         <select data-k="writeMode">
           <option value="karisik" ${st.writeMode === 'karisik' ? 'selected' : ''}>Karışık (gösterilen veya söylenen)</option>
           <option value="goster" ${st.writeMode === 'goster' ? 'selected' : ''}>Gösterilir</option>
@@ -66,8 +114,16 @@ function sinif(body) {
         </select></label>
       <label class="check"><input type="checkbox" data-k="speakFeedback" ${st.speakFeedback ? 'checked' : ''}> Geri bildirimleri sesli oku</label>
       <label class="check"><input type="checkbox" data-k="listeningMode" ${st.listeningMode ? 'checked' : ''}> Cümleler öğrenciye sesli okunuyor (“dinlediğini anlama”)</label>
-      <label class="field">Öğretmen paneli PIN kodu (isteğe bağlı)
-        <input type="password" inputmode="numeric" maxlength="8" data-k="pin" value="${esc(st.pin)}" placeholder="Boş bırakılırsa PIN sorulmaz"></label>
+    </div>
+    <div class="card">
+      <h3>Öğretmen hesabı</h3>
+      <label class="field">Ad soyad<input data-t="name" maxlength="60" value="${esc(T.name || '')}"></label>
+      <label class="field">Okul<input data-t="school" maxlength="80" value="${esc(T.school || '')}"></label>
+      <div class="row2"><label class="field">Sınıf / şube<input data-t="className" maxlength="30" value="${esc(T.className || '')}"></label>
+        <label class="field">Öğretim yılı<input data-t="year" maxlength="12" value="${esc(T.year || '')}"></label></div>
+      <div class="row2"><label class="field">Yeni PIN<input type="password" inputmode="numeric" maxlength="8" data-np></label>
+        <button class="btn" data-setpin>PIN’i değiştir</button></div>
+      <p class="muted">Ad, okul ve sınıf bilgileri başarı belgelerinde yer alır. Hesap yalnızca bu cihazda tutulur.</p>
     </div>
     <div class="card">
       <h3>Ses durumu</h3>
@@ -78,13 +134,23 @@ function sinif(body) {
   </div>`;
   const avail = $('[data-avail]', body);
   const showAvail = () => {
-    avail.innerHTML = `<p><b>Şu an kullanılabilir içerik:</b> ${learnedLetters().length} harf · ${availableSyllables().length} hece · ${availableWords().length} kelime · ${availableSentences().length} cümle</p>`;
+    const L = learnedLetters();
+    avail.innerHTML = `<p><b>Sınıf düzeyi:</b> ${L.length}. harf «${L[L.length - 1]}» · kullanılabilir içerik: ${availableSyllables().length} hece · ${availableWords().length} kelime · ${availableSentences().length} cümle · ${availableTexts().length} metin</p>`;
   };
-  showAvail();
-  $$('[data-g]', body).forEach((cb) => cb.onchange = () => {
-    st.learnedGroups = $$('[data-g]', body).filter((x) => x.checked).map((x) => +x.dataset.g);
-    if (!st.learnedGroups.length) { st.learnedGroups = [1]; $('[data-g="1"]', body).checked = true; toast('En az bir ses grubu seçili olmalı.'); }
-    save(); showAvail();
+  const showPlan = () => {
+    const p = planNow(st.yearStart);
+    const box = $('[data-plan]', body);
+    if (!p) { box.innerHTML = '<p class="muted">Tarih girildiğinde bu haftanın plan harfi gösterilir.</p>'; return; }
+    if (p.week < 0) { box.innerHTML = '<p class="muted">Başlangıç tarihi henüz gelmedi.</p>'; return; }
+    const cls = st.learnedUpTo, want = letterIndex(p.cur.ch);
+    box.innerHTML = `<p>📅 <b>${Math.floor(p.week) + 1}. hafta</b> · plana göre harf: <b class="lc">${upper(p.cur.ch)}${p.cur.ch}</b> · sınıf: <b class="lc">${ALL_LETTERS[cls]}</b></p>
+      <p class="${cls < want - 1 ? 'warn-text' : 'muted'}">${cls < want - 1 ? 'Sınıf plana göre geride. Bu durum olağandır; tekrar ve pekiştirme için zaman ayrılabilir.' : cls > want ? 'Sınıf plandan önde.' : 'Sınıf plana uygun ilerliyor.'}</p>`;
+  };
+  showAvail(); showPlan();
+  $$('[data-up]', body).forEach((b) => b.onclick = () => {
+    st.learnedUpTo = +b.dataset.up; save();
+    $$('[data-up]', body).forEach((x) => { const i = +x.dataset.up; x.classList.toggle('on', i <= st.learnedUpTo); x.classList.toggle('cur', i === st.learnedUpTo); });
+    showAvail(); showPlan(); toast('Sınıfın harf düzeyi: ' + ALL_LETTERS[st.learnedUpTo]);
   });
   $$('[data-k]', body).forEach((el) => el.onchange = () => {
     const k = el.dataset.k;
@@ -95,6 +161,43 @@ function sinif(body) {
       el.value = v;
     }
     st[k] = v; save(); toast('Kaydedildi');
+    if (k === 'yearStart') showPlan();
+  });
+  $$('[data-t]', body).forEach((el) => el.onchange = () => {
+    S.teacher[el.dataset.t] = el.value.trim(); save(); toast('Kaydedildi');
+  });
+  $('[data-setpin]', body).onclick = () => {
+    const v = $('[data-np]', body).value;
+    if (!/^\d{4,8}$/.test(v)) return toast('PIN 4–8 rakamdan oluşmalı.');
+    S.teacher.pin = v; save(); $('[data-np]', body).value = ''; toast('PIN değiştirildi');
+  };
+}
+
+// ================= Belgeler =================
+function belgeler(body) {
+  const S = getState();
+  const keys = [...GROUPS.map((g) => 'g' + g.id), 'final'];
+  const has = (c, k) => S.students[c] && S.students[c].certs && S.students[c].certs[k];
+  body.innerHTML = `
+  <div class="card">
+    <h3>Başarı belgeleri</h3>
+    <p class="muted">Öğrenci bir harf grubundaki bütün harf derslerini bitirdiğinde o grubun belgesini, bütün harfleri bitirdiğinde “İlk Okuma Yazma Başarı Belgesi”ni kazanır. Belgeye yazılacak ad yazdırma sırasında girilir ve kaydedilmez.</p>
+    <div class="table-wrap"><table class="stats certs-table">
+      <thead><tr><th>Kod</th>${keys.map((k) => `<th>${k === 'final' ? '🏆 Okuma yazma' : '🏅 ' + k.slice(1) + '. grup'}</th>`).join('')}</tr></thead>
+      <tbody>${codes().map((c) => `<tr><th>${c}</th>${keys.map((k) => has(c, k)
+        ? `<td><button class="btn tiny" data-open="${c}|${k}">${new Date(has(c, k)).toLocaleDateString('tr-TR')}</button></td>`
+        : `<td class="muted">–</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <h4>Toplu yazdırma</h4>
+    <div class="row wrap">${keys.map((k) => {
+      const n = codes().filter((c) => has(c, k)).length;
+      return `<button class="btn" data-bulk="${k}" ${n ? '' : 'disabled'}>🖨️ ${esc(certTitle(k))} (${n})</button>`;
+    }).join('')}</div>
+    <p class="muted">Toplu yazdırmada belgelerde öğrenci kodu yer alır; adı elle yazabilirsiniz.</p>
+  </div>`;
+  $$('[data-open]', body).forEach((b) => b.onclick = () => { const [c, k] = b.dataset.open.split('|'); openCertificate(c, k); });
+  $$('[data-bulk]', body).forEach((b) => b.onclick = () => {
+    const k = b.dataset.bulk;
+    printCertificates(codes().filter((c) => has(c, k)).map((c) => ({ code: c, key: k, name: '' })));
   });
 }
 
@@ -114,7 +217,24 @@ function ilerleme(body, code) {
   });
   body.innerHTML = `
   <div class="card">
-    <h3>Öğrenci ilerlemesi</h3>
+    <h3>Harf yolculuğu</h3>
+    <p class="muted">Her hücre bir harf dersidir: ★ sayısı ilk denemedeki doğruluğu gösterir (3 ★ ≥ %90, 2 ★ ≥ %70). Mavi çerçeve öğrencinin açık olan son harfidir.</p>
+    <div class="table-wrap"><table class="prog letters-table">
+      <thead><tr><th>Kod</th>${GROUPS.map((g) => g.letters.map((c, i) => `<th class="lc ${i === 0 ? 'gstart' : ''}" style="--gc:${g.color}">${c}</th>`).join('')).join('')}<th>⭐</th><th>🏅</th></tr></thead>
+      <tbody>${list.map((c) => {
+        const s = S.students[c];
+        const up = upToIndex(c);
+        const cells = ALL_LETTERS.map((ch, i) => {
+          const L = s && s.lessons && s.lessons[ch];
+          const g = GROUPS.find((x) => x.letters.includes(ch));
+          const cls = [g.letters[0] === ch ? 'gstart' : '', i === up ? 'upto' : '', i > up ? 'beyond' : ''].join(' ');
+          return `<td class="${cls}" style="--gc:${g.color}">${L && L.done ? `<span class="st st${L.stars}">${'★'.repeat(L.stars)}</span>` : L && L.n ? '<small>…</small>' : ''}</td>`;
+        }).join('');
+        return `<tr data-code="${c}" class="${c === code ? 'sel' : ''}"><th>${c}</th>${cells}<td>${s ? totalStars(c) : 0}</td><td>${s && s.certs ? Object.keys(s.certs).length : 0}</td></tr>`;
+      }).join('')}</tbody></table></div>
+  </div>
+  <div class="card">
+    <h3>Modüllere göre ilerleme (serbest çalışma ve harf dersleri)</h3>
     <p class="muted">Öğrenciler arasında sıralama yapılmaz; hız bir başarı ölçütü değildir. Bir satıra dokunarak ayrıntıyı açın.</p>
     <div class="table-wrap"><table class="prog">
       <thead><tr><th>Kod</th>${MODULES.map((m) => `<th title="${esc(m.title)}">${m.icon}<br><small>${m.no}</small></th>`).join('')}<th>Süre</th><th>Son etkinlik</th></tr></thead>
@@ -156,7 +276,7 @@ function heat(letters, learned) {
 function detail(box, code) {
   const s = student(code);
   const S = getState();
-  const learned = learnedLetters();
+  const learned = learnedLetters(code);
   const hard = Object.entries(s.letters).filter(([, v]) => v.c + v.w >= 3 && v.c / (v.c + v.w) < 0.6).sort((a, b) => a[1].c / (a[1].c + a[1].w) - b[1].c / (b[1].c + b[1].w));
   // Çizim özetleri
   const dr = {};
@@ -167,6 +287,18 @@ function detail(box, code) {
     <div class="row between"><h3>${code} · ayrıntı</h3>
       <div class="row"><a class="btn primary" data-start href="#/ogrenci/${encodeURIComponent(code)}">▶ Bu öğrenciyle başlat</a>
       <button class="btn danger ghost" data-reset>Verileri sıfırla</button></div></div>
+    <h4>Harf düzeyi ve belgeler</h4>
+    <div class="row wrap">
+      <label class="field inline">Bu öğrencinin geldiği harf
+        <select data-upto><option value="">Sınıf düzeyi (${ALL_LETTERS[S.settings.learnedUpTo]})</option>${ALL_LETTERS.map((c, i) => `<option value="${i}" ${s.upTo === i ? 'selected' : ''}>${i + 1}. ${c}</option>`).join('')}</select></label>
+      <span class="chip">🔤 ${lettersDone(code)}/${ALL_LETTERS.length} harf</span><span class="chip">⭐ ${totalStars(code)}</span>
+      ${Object.keys(s.certs).map((k) => `<button class="btn tiny" data-cert="${k}">${k === 'final' ? '🏆' : '🏅'} ${esc(certTitle(k))}</button>`).join('')}
+    </div>
+    <p class="muted">Öğrenciye özel düzey, sınıftan önde ya da geride olan öğrenci için kullanılır (bireysel farklılıklar).</p>
+    <div class="table-wrap"><table class="stats"><thead><tr><th>Harf</th><th>Durum</th><th>Yıldız</th><th>En iyi doğruluk</th><th>Tarih</th><th></th></tr></thead><tbody>
+      ${ALL_LETTERS.filter((c) => s.lessons[c]).map((c) => { const L = s.lessons[c]; return `<tr><td class="lc">${c}</td><td>${L.done ? 'Tamamlandı' : `Devam ediyor (adım ${L.step + 1})`}</td><td>${'★'.repeat(L.stars || 0) || '–'}</td><td>${L.best ? pct(L.best) : '–'}</td><td>${L.date ? new Date(L.date).toLocaleDateString('tr-TR') : '–'}</td>
+        <td><button class="btn tiny ghost" data-relesson="${c}" title="Dersi sıfırla">↺</button></td></tr>`; }).join('') || '<tr><td colspan="6" class="muted">Henüz harf dersi yok.</td></tr>'}
+    </tbody></table></div>
     <h4>Modüller</h4>
     <div class="table-wrap"><table class="stats">
       <thead><tr><th>Modül</th><th>Açık</th><th>Aşama</th><th>Deneme</th><th>Doğru</th><th>Yanlış</th><th>İpuçlu doğru</th><th>İpucu</th><th>Doğruluk</th></tr></thead>
@@ -197,6 +329,11 @@ function detail(box, code) {
   </div>`;
   // Öğretmen panelinden başlatılan oturum öğretmen gözetimi kipinde açılır.
   $('[data-start]', box).onclick = () => { try { sessionStorage.setItem('sesizi.tmode', '1'); } catch { /* yok */ } };
+  $('[data-upto]', box).onchange = (e) => { s.upTo = e.target.value === '' ? null : +e.target.value; save(); toast('Öğrencinin harf düzeyi güncellendi'); };
+  $$('[data-cert]', box).forEach((b) => b.onclick = () => openCertificate(code, b.dataset.cert));
+  $$('[data-relesson]', box).forEach((b) => b.onclick = async () => {
+    if (await confirmBox(`«${b.dataset.relesson}» harf dersi sıfırlansın mı? (Yıldızlar silinir; kazanılmış belgeler korunur.)`, 'Sıfırla')) { delete s.lessons[b.dataset.relesson]; save(); detail(box, code); }
+  });
   $$('[data-unlock]', box).forEach((cb) => cb.onchange = () => { setUnlocked(code, cb.dataset.unlock, cb.checked); toast('Güncellendi'); });
   $('[data-reset]', box).onclick = async () => {
     if (await confirmBox(`${code} kodlu öğrencinin tüm uygulama verileri silinsin mi?`, 'Sil')) { resetStudent(code); location.hash = '#/ogretmen/ilerleme'; }
@@ -244,7 +381,7 @@ function icerik(body) {
   </div>
   ${GROUPS.map((g) => `
   <div class="card">
-    <h3>${g.id}. ses grubu</h3>
+    <h3>${g.id}. harf grubu · <span class="lc">${g.name}</span></h3>
     <h4>Sesler ve harf biçimleri</h4>
     <div class="letter-grid">${g.letters.map((c) => `
       <div class="lg-item">
@@ -263,7 +400,15 @@ function icerik(body) {
       ${SENTENCES.filter((s) => s.g === g.id).map((s) => `<tr><td class="lc">${esc(sentenceText(s))}</td><td><small>${esc(s.q)} → ${s.a}</small></td>
         <td><button class="btn tiny" data-play-s="${esc(s.id)}">▶</button> ${recBtns(sentenceKey(s.id))}</td><td>${checkBox(s.id)}</td><td>${enableBox(s.id)}</td><td>${corrBox(s.id)}</td></tr>`).join('')}
     </tbody></table></div>` : ''}
-  </div>`).join('')}`;
+  </div>`).join('')}
+  <div class="card">
+    <h3>Kısa metinler</h3>
+    <p class="muted">Her grubun son harfinde ve serbest çalışmada “Cümle kur ve anla” modülünün 2. aşamasında okunur.</p>
+    <div class="table-wrap"><table class="stats content"><tbody>
+      ${TEXTS.map((t) => `<tr><td><b>${t.g}. grup</b></td><td class="lc"><b>${esc(t.title)}</b><br>${esc(textBody(t))}</td><td><small>${t.qs.map((q) => esc(q.q) + ' → ' + q.a).join('<br>')}</small></td>
+        <td><button class="btn tiny" data-play-t="${esc(t.id)}">▶</button> ${recBtns('metin:' + t.id)}</td><td>${checkBox(t.id)}</td><td>${enableBox(t.id)}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div>`;
 
   const kp = $('[data-kpis]', body);
   const showK = () => {
@@ -291,6 +436,10 @@ function icerik(body) {
   $$('[data-play-s]', body).forEach((b) => b.onclick = () => {
     const s = SENTENCES.find((x) => x.id === b.dataset.playS);
     play(sentenceKey(s.id), sentenceText(s), 0.8);
+  });
+  $$('[data-play-t]', body).forEach((b) => b.onclick = () => {
+    const t = TEXTS.find((x) => x.id === b.dataset.playT);
+    play('metin:' + t.id, textBody(t), 0.8);
   });
   let rec = null, recKey = null;
   $$('[data-rec]', body).forEach((b) => b.onclick = async () => {
@@ -583,6 +732,8 @@ function veri(body) {
         <li>Etkinlik başına deneme, doğru, yanlış ve ipucu sayısı; ses bazında doğruluk.</li>
         <li>Çizim puanı (0–100), destek düzeyi ve harf; çizimin kendisi saklanmaz.</li>
         <li>Oturum başlangıç ve bitiş zamanları; öğretmen gözlem notları; ön test–son test puanları.</li>
+        <li>Harf dersi ilerlemesi (adım, yıldız, tarih) ve kazanılan belgeler. Belgedeki öğrenci adı yazdırma anında girilir, saklanmaz.</li>
+        <li>Öğretmen hesabı (ad, okul, sınıf, PIN) yalnızca bu cihazda; dışa aktarılan dosyaya PIN yazılmaz.</li>
       </ul>
     </div>
     <div class="card danger-zone">
@@ -590,8 +741,17 @@ function veri(body) {
       <p>Bütün öğrenci verilerini, test puanlarını ve ayarları siler. Geri alınamaz.</p>
       <button class="btn danger" data-reset>Tüm verileri sil</button>
     </div>
+    <div class="card">
+      <h3>Çok cihazlı kullanım (bulut veri tabanı)</h3>
+      <p>Şu an her cihaz kendi verisini tutar. Sınıfta birden çok tablet kullanılıyorsa günün sonunda her cihazdan “Tüm verileri indir” ile yedek alıp ana cihazda içe aktarabilirsiniz.</p>
+      <p class="muted">Öğretmen hesabının ve öğrenci verilerinin bütün cihazlarda eş zamanlı görünmesi için bulut veri tabanı (ör. Firebase) bağlantısı sonraki sürümde eklenecektir; bu durumda veli onamı ve kişisel verilerin korunması (KVKK) gereklilikleri ayrıca karşılanmalıdır.</p>
+    </div>
   </div>`;
-  $('[data-exp]', body).onclick = () => download(`SESIZI_veri_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(getState(), null, 2), 'application/json');
+  $('[data-exp]', body).onclick = () => {
+    const S = getState();
+    const out = { ...S, teacher: S.teacher ? { ...S.teacher, pin: undefined } : null };
+    download(`SESIZI_veri_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(out, null, 2), 'application/json');
+  };
   $('[data-expcsv]', body).onclick = () => {
     const S = getState();
     const rows = [['Kod', 'Modül', 'Deneme', 'Doğru', 'Yanlış', 'İpuçlu doğru', 'İpucu', 'Aşama', 'Tamamlandı']];
@@ -599,6 +759,10 @@ function veri(body) {
     rows.push([]); rows.push(['Kod', 'Modül', 'Harf', 'Destek düzeyi', 'Çizim puanı', 'Başarılı', 'Tarih']);
     const lv = { 1: 'Tam rehber', 2: 'Azaltılmış rehber', 3: 'Rehbersiz', 4: 'Bağımsız yaz' };
     Object.entries(S.students).forEach(([c, s]) => s.drawings.forEach((d) => rows.push([c, d.m, d.l, lv[d.lv], d.sc, d.ok ? 'evet' : 'hayır', new Date(d.t).toLocaleString('tr-TR')])));
+    rows.push([]); rows.push(['Kod', 'Harf', 'Sıra', 'Durum', 'Yıldız', 'En iyi doğruluk', 'Tarih']);
+    Object.entries(S.students).forEach(([c, s]) => ALL_LETTERS.forEach((ch, i) => { const L = (s.lessons || {})[ch]; if (L) rows.push([c, ch, i + 1, L.done ? 'tamamlandı' : 'devam', L.stars || 0, L.best ? Math.round(L.best * 100) + '%' : '', L.date ? new Date(L.date).toLocaleDateString('tr-TR') : '']); }));
+    rows.push([]); rows.push(['Kod', 'Belge', 'Tarih']);
+    Object.entries(S.students).forEach(([c, s]) => Object.entries(s.certs || {}).forEach(([k, t]) => rows.push([c, certTitle(k), new Date(t).toLocaleDateString('tr-TR')])));
     download('SESIZI_uygulama_ici_kayitlar.csv', toCSV(rows), 'text/csv;charset=utf-8');
   };
   $('[data-imp]', body).onchange = async (e) => {
@@ -607,7 +771,7 @@ function veri(body) {
     try {
       const data = JSON.parse(await f.text());
       if (data.version !== 1 || !data.settings) throw new Error();
-      if (await confirmBox('Mevcut verilerin yerine dosyadaki veriler yüklensin mi?', 'Yükle')) { replaceState(data); toast('Veriler yüklendi'); veri(body); }
+      if (await confirmBox('Mevcut verilerin yerine dosyadaki veriler yüklensin mi? (Bu cihazdaki öğretmen hesabı ve PIN korunur.)', 'Yükle')) { replaceState({ ...data, teacher: getState().teacher }); toast('Veriler yüklendi'); veri(body); }
     } catch { toast('Dosya okunamadı veya SESİZİ verisi değil.'); }
   };
   $('[data-reset]', body).onclick = async () => {
